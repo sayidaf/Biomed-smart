@@ -55,11 +55,14 @@ export default function DashboardPage() {
   // Robust Case-Insensitive Role Check
   const roleString = profile?.role?.toString().toLowerCase() || ''
   const isAdmin = roleString === 'admin'
+  const isEngineer = roleString === 'biomedical engineer' || roleString === 'technician'
 
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile || isAdmin) return null
+    // Only fetch if authenticated as staff and NOT admin (admin gets staff view)
+    if (!db || !profile || !isEngineer) return null
     return collection(db, "equipment")
-  }, [db, profile, isAdmin])
+  }, [db, profile, isEngineer])
+  
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
   const faultyEquipment = equipment?.filter(eq => eq.status === 'FAULTY').slice(0, 3)
@@ -120,7 +123,7 @@ export default function DashboardPage() {
               Protocol BioMedLink-2026 is fully active.
             </p>
           </div>
-          {!isAdmin && (
+          {isEngineer && (
             <div className="flex items-center gap-2">
               <Link href="/equipment">
                 <Button size="sm" className="shadow-lg shadow-primary/20">

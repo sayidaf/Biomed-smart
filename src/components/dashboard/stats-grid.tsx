@@ -24,13 +24,15 @@ export function StatsGrid() {
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Only query equipment if user is recognized as staff
+  // Robust Case-Insensitive Role Check for component logic
+  const roleString = profile?.role?.toString().toLowerCase() || ''
+  const isEngineer = roleString === 'biomedical engineer' || roleString === 'technician'
+
+  // Only query equipment if user is recognized as engineering staff
   const eqQuery = useMemoFirebase(() => {
-    if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
+    if (!db || !profile || !isEngineer) return null
     return collection(db, "equipment")
-  }, [db, profile])
+  }, [db, profile, isEngineer])
   
   const { data: equipment, isLoading } = useCollection(eqQuery)
 
