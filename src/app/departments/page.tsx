@@ -74,6 +74,9 @@ export default function DepartmentsPage() {
     setFormData({ name: "", description: "" })
   }
 
+  // Admins and Biomedical Engineers can add departments
+  const canAddDept = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -82,7 +85,7 @@ export default function DepartmentsPage() {
             <h1 className="text-3xl font-headline font-bold text-primary">Hospital Departments</h1>
             <p className="text-muted-foreground mt-1">Organize and manage equipment inventory by facility location.</p>
           </div>
-          {profile?.role === 'Admin' && (
+          {canAddDept && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="shadow-lg shadow-primary/20">

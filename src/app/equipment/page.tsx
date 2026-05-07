@@ -64,11 +64,9 @@ export default function EquipmentPage() {
   }, [db, profile])
   const { data: equipment, isLoading } = useCollection(equipmentQuery)
 
-  // Real-time Departments for reference - Conditional on role
+  // Real-time Departments for reference
   const deptQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "departments")
   }, [db, profile])
   const { data: departments } = useCollection(deptQuery)
@@ -119,6 +117,9 @@ export default function EquipmentPage() {
     eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Engineers and Admins can create equipment
+  const canCreate = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -132,7 +133,7 @@ export default function EquipmentPage() {
               <Printer className="w-4 h-4 mr-2" />
               QR Labels
             </Button>
-            {profile?.role === 'Admin' && (
+            {canCreate && (
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="shadow-lg shadow-primary/20">
