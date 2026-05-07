@@ -1,6 +1,7 @@
 
 "use client"
 
+import { useState, useEffect } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { StatsGrid } from "@/components/dashboard/stats-grid"
 import { MaintenanceOverview } from "@/components/dashboard/maintenance-overview"
@@ -17,17 +18,27 @@ import {
 import { Button } from "@/components/ui/button"
 import { useUser } from "@/firebase"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
+  const [currentDate, setCurrentDate] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push("/")
     }
   }, [user, isUserLoading, router])
+
+  useEffect(() => {
+    // Avoid hydration errors by setting date only on the client
+    setCurrentDate(new Date().toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }))
+  }, [])
 
   if (isUserLoading) return null
 
@@ -38,7 +49,10 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold text-primary mb-1">Welcome back, {user?.displayName || 'Engineer'}</h1>
-            <p className="text-muted-foreground">Here's what's happening in your facility today.</p>
+            <p className="text-muted-foreground">
+              {currentDate ? `Today is ${currentDate}. ` : ''}
+              Here's what's happening in your facility today.
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm">

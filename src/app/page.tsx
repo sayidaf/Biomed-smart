@@ -280,7 +280,7 @@ export default function LandingPage() {
             <ShieldCheck className="w-6 h-6 text-primary" />
             <span className="text-lg font-headline font-bold text-primary">BioMedLink</span>
           </div>
-          <p className="text-sm text-muted-foreground">© 2024 BioMedLink Systems. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2026 BioMedLink Systems. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="text-sm text-muted-foreground hover:text-primary">Privacy Policy</a>
             <a href="#" className="text-sm text-muted-foreground hover:text-primary">Terms of Service</a>
