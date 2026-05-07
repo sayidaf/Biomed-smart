@@ -75,8 +75,8 @@ export function SidebarNav() {
           )
         })}
 
-        {/* Admin only User Management */}
-        {(profile?.role === 'Admin' || !user?.isAnonymous) && (
+        {/* Admin only User Management - Strict check */}
+        {profile?.role === 'Admin' && (
           <Link
             href="/users"
             className={cn(

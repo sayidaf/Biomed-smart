@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,9 +16,10 @@ import {
   User,
   MoreVertical,
   CheckCircle2,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react"
-import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { Badge } from "@/components/ui/badge"
@@ -39,12 +40,22 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog"
+import { useRouter } from "next/navigation"
 
 export default function UsersManagementPage() {
   const db = useFirestore()
+  const router = useRouter()
   const { user: currentUser } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   
+  // Get current user's profile to check role
+  const currentUserProfileRef = useMemoFirebase(() => {
+    if (!db || !currentUser) return null
+    return doc(db, "userProfiles", currentUser.uid)
+  }, [db, currentUser])
+
+  const { data: profile, isLoading: isProfileLoading } = useDoc(currentUserProfileRef)
+
   // Form State
   const [formData, setFormData] = useState({
     email: "",
@@ -53,12 +64,13 @@ export default function UsersManagementPage() {
     role: "Biomedical Engineer"
   })
 
+  // Only query if user is an Admin
   const usersQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || profile?.role !== 'Admin') return null
     return collection(db, "userProfiles")
-  }, [db])
+  }, [db, profile?.role])
 
-  const { data: users, isLoading } = useCollection(usersQuery)
+  const { data: users, isLoading: isUsersLoading } = useCollection(usersQuery)
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,6 +94,32 @@ export default function UsersManagementPage() {
     if (!db || userId === currentUser?.uid) return
     const userRef = doc(db, "userProfiles", userId)
     deleteDocumentNonBlocking(userRef)
+  }
+
+  if (isProfileLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (profile?.role !== 'Admin') {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-destructive" />
+          <h2 className="text-2xl font-headline font-bold">Unauthorized Access</h2>
+          <p className="text-muted-foreground max-w-md">
+            You do not have the required permissions to view or manage staff. 
+            Please contact a System Administrator if you believe this is an error.
+          </p>
+          <Button onClick={() => router.push("/dashboard")}>Return to Dashboard</Button>
+        </div>
+      </AppShell>
+    )
   }
 
   return (
@@ -148,7 +186,7 @@ export default function UsersManagementPage() {
                   <Label htmlFor="role">System Role</Label>
                   <select 
                     id="role"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     value={formData.role}
                     onChange={(e) => setFormData({...formData, role: e.target.value})}
                   >
@@ -177,7 +215,7 @@ export default function UsersManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isUsersLoading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-10">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
