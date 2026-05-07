@@ -111,12 +111,14 @@ export default function UsersManagementPage() {
     e.preventDefault()
     if (!db) return
 
-    const newUserId = Math.random().toString(36).substring(2, 15)
-    const userRef = doc(db, "userProfiles", newUserId)
+    // For pre-provisioning, we use the email as a temporary ID.
+    // The Auto-Link logic in the Dashboard will link it to their Auth UID on first login.
+    const tempId = createData.email.toLowerCase().replace(/[^a-z0-9]/g, '_')
+    const userRef = doc(db, "userProfiles", tempId)
     
     setDocumentNonBlocking(userRef, {
-      id: newUserId,
-      email: createData.email,
+      id: tempId,
+      email: createData.email.toLowerCase(),
       firstName: createData.firstName,
       lastName: createData.lastName,
       role: "Biomedical Engineer",
@@ -150,7 +152,7 @@ export default function UsersManagementPage() {
     updateDocumentNonBlocking(userRef, {
       firstName: editData.firstName,
       lastName: editData.lastName,
-      email: editData.email,
+      email: editData.email.toLowerCase(),
       updatedAt: serverTimestamp()
     })
 
@@ -329,7 +331,7 @@ export default function UsersManagementPage() {
                       <ol className="list-decimal pl-4 space-y-1 font-medium">
                         <li>Open Firebase Console &gt; Authentication</li>
                         <li>Click "Add User"</li>
-                        <li>Email: <span className="font-bold underline">{createData.email}</span></li>
+                        <li>Email: <span className="font-bold underline">{createData.email.toLowerCase()}</span></li>
                         <li>Password: <span className="font-bold underline">{createData.password}</span></li>
                       </ol>
                     </AlertDescription>
@@ -443,7 +445,7 @@ export default function UsersManagementPage() {
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-2 text-green-600 text-[10px] md:text-xs font-medium">
                           <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
-                          Authenticated
+                          Registry Active
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

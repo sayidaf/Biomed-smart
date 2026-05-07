@@ -19,12 +19,13 @@ import {
   TrendingUp,
   Award,
   UserCheck,
-  Copy
+  Copy,
+  RefreshCw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
-import { collection, doc } from "firebase/firestore"
+import { collection, doc, query, where, getDocs, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [currentDate, setCurrentDate] = useState<string | null>(null)
+  const [isLinking, setIsLinking] = useState(false)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -56,6 +58,52 @@ export default function DashboardPage() {
   }, [db, user])
   
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
+
+  // Auto-link logic: If profile is missing, search by email
+  useEffect(() => {
+    const attemptAutoLink = async () => {
+      if (!db || !user || isProfileLoading || profile || isLinking) return
+
+      setIsLinking(true)
+      try {
+        const q = query(collection(db, "userProfiles"), where("email", "==", user.email))
+        const querySnapshot = await getDocs(q)
+        
+        if (!querySnapshot.empty) {
+          const existingDoc = querySnapshot.docs[0]
+          const data = existingDoc.data()
+          
+          if (existingDoc.id !== user.uid) {
+            // Found a pre-provisioned profile, link it to current UID
+            await setDoc(doc(db, "userProfiles", user.uid), {
+              ...data,
+              id: user.uid,
+              updatedAt: serverTimestamp()
+            })
+            
+            // Clean up the temporary email-based doc if it exists
+            if (existingDoc.id === data.email) {
+              await deleteDoc(existingDoc.ref)
+            }
+            
+            toast({
+              title: "Profile Synchronized",
+              description: "Your professional registry entry has been linked to your account.",
+            })
+            window.location.reload()
+          }
+        }
+      } catch (error) {
+        console.error("Auto-link failed:", error)
+      } finally {
+        setIsLinking(false)
+      }
+    }
+
+    if (!isProfileLoading && !profile && user?.email) {
+      attemptAutoLink()
+    }
+  }, [db, user, isProfileLoading, profile, isLinking, toast])
 
   const roleString = profile?.role?.toString().toLowerCase() || ''
   const isAdmin = roleString === 'admin'
@@ -87,11 +135,12 @@ export default function DashboardPage() {
     }
   }
 
-  if (isUserLoading || isProfileLoading) {
+  if (isUserLoading || isProfileLoading || isLinking) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          {isLinking && <p className="text-sm text-muted-foreground animate-pulse">Synchronizing Security Credentials...</p>}
         </div>
       </AppShell>
     )
@@ -105,15 +154,15 @@ export default function DashboardPage() {
             <Database className="w-8 h-8 text-orange-600" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Registry Entry Missing</h2>
+            <h2 className="text-2xl font-bold">Registry Initialization Required</h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Your login is active, but no professional profile was found in the <strong>userProfiles</strong> database for your account.
+              Authenticated session active for <strong>{user?.email}</strong>, but no linked professional profile was found.
             </p>
           </div>
           
           <div className="p-6 bg-muted rounded-xl text-left space-y-4 border border-border shadow-inner">
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Your System UID (Use as Doc ID)</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">System Authentication UID</Label>
               <div className="flex items-center gap-2 bg-background p-2 rounded border font-mono text-xs overflow-hidden">
                 <span className="truncate flex-1">{user?.uid}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={copyUid}>
@@ -124,13 +173,16 @@ export default function DashboardPage() {
             <div className="text-[11px] space-y-2 text-muted-foreground">
               <p>1. Open Firebase Console &gt; Firestore</p>
               <p>2. Navigate to collection: <strong>userProfiles</strong></p>
-              <p>3. Add document with ID: <strong>(Paste your UID from above)</strong></p>
-              <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
-              <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong>, <strong>id</strong></p>
+              <p>3. Create document with ID: <strong>(Paste your UID from above)</strong></p>
+              <p>4. Add string field: <strong>role</strong> (e.g., "Admin" or "Biomedical Engineer")</p>
+              <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong></p>
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Button onClick={() => window.location.reload()} className="w-full">Refresh Terminal</Button>
+            <Button onClick={() => window.location.reload()} className="w-full gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Retry Synchronization
+            </Button>
             <Button variant="outline" onClick={() => router.push("/")} className="w-full">Back to Login</Button>
           </div>
         </div>
