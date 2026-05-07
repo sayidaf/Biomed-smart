@@ -10,15 +10,16 @@ import {
   Wrench, 
   AlertTriangle, 
   History, 
-  Search, 
   FileText,
   Settings,
   BrainCircuit,
-  LogOut
+  LogOut,
+  Users
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/firebase"
+import { useAuth, useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { signOut } from "firebase/auth"
+import { doc } from "firebase/firestore"
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -35,6 +36,15 @@ export function SidebarNav() {
   const pathname = usePathname()
   const router = useRouter()
   const auth = useAuth()
+  const db = useFirestore()
+  const { user } = useUser()
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return doc(db, "userProfiles", user.uid)
+  }, [db, user])
+
+  const { data: profile } = useDoc(userProfileRef)
 
   const handleLogout = async () => {
     if (auth) {
@@ -64,6 +74,22 @@ export function SidebarNav() {
             </Link>
           )
         })}
+
+        {/* Admin only User Management */}
+        {(profile?.role === 'Admin' || !user?.isAnonymous) && (
+          <Link
+            href="/users"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
+              pathname === "/users"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+            )}
+          >
+            <Users className="w-4 h-4" />
+            <span>Staff Mgmt</span>
+          </Link>
+        )}
       </div>
       
       <div className="mt-auto pt-4 border-t border-border flex flex-col gap-1">
