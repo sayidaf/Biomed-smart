@@ -7,49 +7,39 @@ import Image from "next/image"
 import { 
   ShieldCheck, 
   Lock, 
-  Mail, 
   Loader2, 
   ArrowRight,
-  LogIn,
   ChevronLeft,
   Eye,
   EyeOff,
-  UserPlus,
-  Zap,
   Cpu,
-  BarChart,
-  User
+  Activity,
+  Zap,
+  Microscope
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useUser, useAuth, useFirestore } from "@/firebase"
-import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
+import { useUser, useAuth } from "@/firebase"
+import { initiateEmailSignIn } from "@/firebase/non-blocking-login"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from "@/components/ui/carousel"
-import { Card, CardContent } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 
 export default function LandingPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
   const auth = useAuth()
-  const db = useFirestore()
   const { toast } = useToast()
 
-  const [view, setView] = useState<"hero" | "auth" | "register">("hero")
+  const [view, setView] = useState<"hero" | "auth">("hero")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
@@ -83,82 +73,70 @@ export default function LandingPage() {
     }
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!auth || !db || !email || !password || !firstName || !lastName) return
-    
-    setAuthLoading(true)
-    try {
-      const userCredential = await initiateEmailSignUp(auth, email, password)
-      const newUser = userCredential.user
-
-      // Create UserProfile in Firestore immediately
-      // This is the critical part that populates your database
-      await setDoc(doc(db, "userProfiles", newUser.uid), {
-        id: newUser.uid,
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        role: "Biomedical Engineer", // Default role
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      })
-
-      toast({
-        title: "Registry Initialized",
-        description: "Your staff profile has been created in the database.",
-      })
-      router.push("/dashboard")
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Registration Failed",
-        description: error.message || "Could not initialize account.",
-      })
-    } finally {
-      setAuthLoading(false)
-    }
-  }
-
-  if (isUserLoading) return null
+  if (isUserLoading) return (
+    <div className="h-screen w-full flex items-center justify-center bg-background">
+      <Loader2 className="w-10 h-10 animate-spin text-primary" />
+    </div>
+  )
 
   return (
     <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background">
+      {/* Sophisticated background grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(var(--primary),0.05),transparent)] z-0" />
       
       <div className="relative z-10 w-full max-w-6xl px-6 flex flex-col items-center gap-12">
         <div className="flex flex-col items-center gap-6 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40">
+          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40 border border-primary/20">
             <ShieldCheck className="w-12 h-12 text-primary-foreground" />
           </div>
-          <div className="space-y-2">
-            <h1 className="text-5xl md:text-6xl font-headline font-bold text-foreground tracking-tighter">
-              BioMedLink <span className="text-primary">2026</span>
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-7xl font-headline font-bold text-foreground tracking-tighter">
+              BioMedLink <span className="text-primary">Core</span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-              Precision Engineering. Absolute Reliability. 
+            <p className="text-lg md:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed">
+              Advancing Healthcare through <span className="text-foreground font-bold italic">Precision Engineering</span> and <span className="text-foreground font-bold italic">Absolute Reliability</span>.
             </p>
           </div>
         </div>
 
         {view === "hero" ? (
           <div className="w-full flex flex-col items-center gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+              {[
+                { icon: Zap, title: "Operational Excellence", desc: "Maximizing hardware uptime with intelligent predictive maintenance." },
+                { icon: Activity, title: "Diagnostic Precision", desc: "Real-time performance monitoring and ISO-compliant calibration." },
+                { icon: Microscope, title: "BME Intelligence", desc: "AI-driven troubleshooting for the next generation of clinical hardware." }
+              ].map((feature, i) => (
+                <div key={i} className="p-6 rounded-2xl bg-card border border-border shadow-sm flex flex-col items-center text-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                    <feature.icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-lg">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+
             <div className="w-full max-w-4xl mx-auto">
               <Carousel className="w-full" opts={{ loop: true }}>
                 <CarouselContent>
                   {PlaceHolderImages.slice(0, 3).map((img) => (
                     <CarouselItem key={img.id}>
-                      <div className="relative aspect-[21/9] rounded-[2rem] overflow-hidden border border-border">
+                      <div className="relative aspect-[21/9] rounded-[2rem] overflow-hidden border border-border shadow-2xl">
                         <Image 
                           src={img.imageUrl} 
                           alt={img.description} 
                           fill 
-                          className="object-cover"
+                          className="object-cover brightness-[0.85]"
                           priority
                           data-ai-hint={img.imageHint}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
-                          <h2 className="text-2xl font-bold text-white">{img.description}</h2>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-10">
+                          <div className="space-y-2">
+                            <Badge className="bg-primary/20 text-white border-white/20 backdrop-blur-md mb-2">Standard Protocol</Badge>
+                            <h2 className="text-3xl font-bold text-white tracking-tight">{img.description}</h2>
+                          </div>
                         </div>
                       </div>
                     </CarouselItem>
@@ -167,93 +145,65 @@ export default function LandingPage() {
               </Carousel>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="h-14 px-8 font-bold" onClick={() => setView("auth")}>
-                Access Terminal
-                <ArrowRight className="ml-2 w-5 h-5" />
+            <div className="flex flex-col items-center gap-6">
+              <Button size="lg" className="h-16 px-12 text-lg font-bold shadow-2xl shadow-primary/40 group" onClick={() => setView("auth")}>
+                Access Management Terminal
+                <ArrowRight className="ml-2 w-6 h-6 transition-transform group-hover:translate-x-1" />
               </Button>
+              <p className="text-xs font-mono text-muted-foreground uppercase tracking-[0.2em]">Authorized Access Only • System Integrity v2.4</p>
             </div>
-            
-            <button 
-              onClick={() => setView("register")}
-              className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
-            >
-              Initialize new staff account (Register)
-            </button>
           </div>
-        ) : view === "auth" ? (
-          <div className="w-full max-w-md">
-            <Card className="border-none shadow-2xl rounded-[2rem]">
-              <CardContent className="p-10 space-y-8">
-                <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary">
+        ) : (
+          <div className="w-full max-w-md animate-in fade-in zoom-in duration-300">
+            <Card className="border-none shadow-2xl rounded-[2.5rem] bg-card/50 backdrop-blur-xl border border-border">
+              <CardContent className="p-12 space-y-8">
+                <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors">
                   <ChevronLeft className="w-4 h-4" />
-                  Back
+                  Return to Overview
                 </button>
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-headline font-bold">Terminal Login</h2>
-                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Node ID: HQ-MAIN-2026</p>
+                <div className="space-y-2">
+                  <h2 className="text-4xl font-headline font-bold tracking-tight">Terminal Login</h2>
+                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Secure Gateway: HQ-MAIN-BME
+                  </p>
                 </div>
                 <form onSubmit={handleLogin} className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Engineer ID (Email)</Label>
-                    <Input id="email" type="email" placeholder="engineer@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <Label htmlFor="email" className="text-xs font-bold uppercase text-muted-foreground">Engineer Credentials</Label>
+                    <Input id="email" type="email" placeholder="id@biomedlink.sys" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-background/50" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Security PIN</Label>
+                    <Label htmlFor="password" className="text-xs font-bold uppercase text-muted-foreground">Security PIN</Label>
                     <div className="relative">
-                      <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12 bg-background/50 pr-12" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors">
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full h-12 font-bold" disabled={authLoading}>
-                    {authLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Authorize Session"}
+                  <Button type="submit" className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20" disabled={authLoading}>
+                    {authLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Authorize Session"}
                   </Button>
                 </form>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="w-full max-w-md">
-            <Card className="border-none shadow-xl rounded-[2rem]">
-              <CardContent className="p-10 space-y-6">
-                <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary">
-                  <ChevronLeft className="w-4 h-4" />
-                  Back
-                </button>
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-headline font-bold">Staff Registry</h2>
-                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Create Profile in Firestore</p>
+                <div className="pt-4 border-t border-border flex flex-col items-center gap-2">
+                   <p className="text-[10px] text-center text-muted-foreground max-w-xs uppercase leading-relaxed tracking-wider">
+                     By accessing this terminal, you agree to comply with medical equipment safety protocols and hospital data integrity policies.
+                   </p>
                 </div>
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="Jane" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-email">Work Email</Label>
-                    <Input id="reg-email" type="email" placeholder="engineer@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-password">Security PIN (Password)</Label>
-                    <Input id="reg-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                  </div>
-                  <Button type="submit" className="w-full h-12 font-bold" disabled={authLoading}>
-                    {authLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Register & Create Profile"}
-                  </Button>
-                </form>
               </CardContent>
             </Card>
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function Badge({ children, className, ...props }: any) {
+  return (
+    <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${className}`} {...props}>
+      {children}
     </div>
   )
 }
