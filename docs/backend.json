@@ -1,0 +1,531 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user of the BioMedLink system, storing their profile information and role. Authentication details are managed externally.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for identification.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the system, defining their access permissions. (e.g., Admin, Biomedical Engineer, Technician)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "firstName",
+        "lastName",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a hospital department where equipment is located.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Department entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the hospital department (e.g., 'ICU', 'Radiology')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description or purpose of the department."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the department record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the department record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Equipment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Equipment",
+      "type": "object",
+      "description": "Represents a piece of biomedical engineering equipment within a hospital department.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Equipment entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The common name of the equipment (e.g., 'MRI Scanner', 'Ventilator')."
+        },
+        "manufacturer": {
+          "type": "string",
+          "description": "The manufacturer of the equipment."
+        },
+        "modelNumber": {
+          "type": "string",
+          "description": "The model number of the equipment, used for specific identification."
+        },
+        "serialNumber": {
+          "type": "string",
+          "description": "The unique serial number of the equipment, crucial for identification and troubleshooting."
+        },
+        "assetNumber": {
+          "type": "string",
+          "description": "An internal hospital asset tracking number for the equipment. Can be null."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department where the equipment is located. (Relationship: Department 1:N Equipment)"
+        },
+        "purchaseDate": {
+          "type": "string",
+          "description": "The date when the equipment was purchased.",
+          "format": "date"
+        },
+        "installationDate": {
+          "type": "string",
+          "description": "The date when the equipment was installed.",
+          "format": "date"
+        },
+        "warrantyExpiryDate": {
+          "type": "string",
+          "description": "The date when the equipment's warranty expires.",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current operational status of the equipment (e.g., 'Operational', 'Under Maintenance', 'Out of Service', 'Retired')."
+        },
+        "lastServiceDate": {
+          "type": "string",
+          "description": "The date of the most recent service performed on the equipment, updated automatically from maintenance logs.",
+          "format": "date"
+        },
+        "nextServiceDate": {
+          "type": "string",
+          "description": "The calculated date for the next scheduled service, updated automatically from maintenance logs.",
+          "format": "date"
+        },
+        "manualUris": {
+          "type": "array",
+          "description": "An array of URIs pointing to uploaded manuals or documentation for the equipment.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "imageUris": {
+          "type": "array",
+          "description": "An array of URIs pointing to images of the equipment.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "qrCodeUri": {
+          "type": "string",
+          "description": "URI to the generated QR code image for this equipment's profile.",
+          "format": "uri"
+        },
+        "barcodeValue": {
+          "type": "string",
+          "description": "The barcode value associated with the equipment for quick scanning."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the equipment record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the equipment record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "manufacturer",
+        "modelNumber",
+        "serialNumber",
+        "departmentId",
+        "purchaseDate",
+        "installationDate",
+        "warrantyExpiryDate",
+        "status",
+        "manualUris",
+        "imageUris",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MaintenanceLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MaintenanceLog",
+      "type": "object",
+      "description": "Records all maintenance activities, repairs, inspections, or installations performed on a piece of equipment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the MaintenanceLog entity."
+        },
+        "equipmentId": {
+          "type": "string",
+          "description": "Reference to the Equipment this log pertains to. (Relationship: Equipment 1:N MaintenanceLog)"
+        },
+        "performedById": {
+          "type": "string",
+          "description": "Reference to the UserProfile of the engineer or technician who performed the maintenance. (Relationship: UserProfile 1:N MaintenanceLog)"
+        },
+        "logType": {
+          "type": "string",
+          "description": "The type of maintenance activity performed (e.g., 'Preventive Maintenance', 'Repair', 'Inspection', 'Installation')."
+        },
+        "serviceDate": {
+          "type": "string",
+          "description": "The date and time when the service or maintenance was performed.",
+          "format": "date-time"
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the work performed or issue addressed."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any additional notes or observations related to the maintenance."
+        },
+        "faultDescription": {
+          "type": "string",
+          "description": "Description of the fault if the log type is 'Repair'."
+        },
+        "resolution": {
+          "type": "string",
+          "description": "Description of how the fault was resolved if the log type is 'Repair'."
+        },
+        "downtimeDurationMinutes": {
+          "type": "number",
+          "description": "The duration of equipment downtime in minutes associated with this maintenance event."
+        },
+        "replacedParts": {
+          "type": "array",
+          "description": "An array of strings listing any parts that were replaced during this maintenance.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cost": {
+          "type": "number",
+          "description": "The cost incurred for this maintenance activity."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the maintenance log was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the maintenance log was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "equipmentId",
+        "performedById",
+        "logType",
+        "serviceDate",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AITroubleshootingSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AITroubleshootingSession",
+      "type": "object",
+      "description": "Records an AI-powered troubleshooting session for a specific piece of equipment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AITroubleshootingSession entity."
+        },
+        "equipmentId": {
+          "type": "string",
+          "description": "Reference to the Equipment being troubleshooted. (Relationship: Equipment 1:N AITroubleshootingSession)"
+        },
+        "engineerId": {
+          "type": "string",
+          "description": "Reference to the UserProfile of the engineer initiating the session. (Relationship: UserProfile 1:N AITroubleshootingSession)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The date and time when the troubleshooting session started.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The date and time when the troubleshooting session ended or was completed. Can be null if ongoing.",
+          "format": "date-time"
+        },
+        "problemSummary": {
+          "type": "string",
+          "description": "A summary of the problem or symptoms initially presented to the AI."
+        },
+        "resolutionSummary": {
+          "type": "string",
+          "description": "A summary of the resolution or guidance provided by the AI, if applicable. Can be null."
+        },
+        "wasHelpful": {
+          "type": "boolean",
+          "description": "User feedback indicating if the AI's assistance was helpful. Can be null."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the AI troubleshooting session record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the AI troubleshooting session record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "equipmentId",
+        "engineerId",
+        "startTime",
+        "problemSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AITroubleshootingMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AITroubleshootingMessage",
+      "type": "object",
+      "description": "Stores individual messages within an AI troubleshooting session, representing the conversation flow.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AITroubleshootingMessage entity."
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Reference to the AITroubleshootingSession this message belongs to. (Relationship: AITroubleshootingSession 1:N AITroubleshootingMessage)"
+        },
+        "senderType": {
+          "type": "string",
+          "description": "Indicates whether the message was sent by the 'User' or the 'AI'."
+        },
+        "content": {
+          "type": "string",
+          "description": "The actual text content of the message."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when the message was sent.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the AI troubleshooting message record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the AI troubleshooting message record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "sessionId",
+        "senderType",
+        "content",
+        "timestamp",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/userProfiles/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile details including `role` for role-based access control. Path-based ownership: `userId` must match `request.auth.uid`.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user, matching `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Manages hospital departments. Accessible to all authenticated users for read, with Admin role for CRUD operations.",
+          "params": [
+            {
+              "name": "departmentId",
+              "description": "The unique ID of the department."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/equipment/{equipmentId}",
+        "definition": {
+          "entityName": "Equipment",
+          "schema": {
+            "$ref": "#/backend/entities/Equipment"
+          },
+          "description": "Stores detailed records of biomedical equipment. Includes `departmentId` for logical grouping and filtering. Access is role-based (Admin, Biomedical Engineer, Technician) and can be restricted by `departmentId` (checking `request.auth.uid`'s `managedDepartmentIds`).",
+          "params": [
+            {
+              "name": "equipmentId",
+              "description": "The unique ID of the equipment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/equipment/{equipmentId}/maintenanceLogs/{logId}",
+        "definition": {
+          "entityName": "MaintenanceLog",
+          "schema": {
+            "$ref": "#/backend/entities/MaintenanceLog"
+          },
+          "description": "Records all maintenance activities for a specific piece of equipment. Includes denormalized `departmentId` (from parent `Equipment`) and `equipmentId` (from path) for authorization independence.",
+          "params": [
+            {
+              "name": "equipmentId",
+              "description": "The unique ID of the parent equipment."
+            },
+            {
+              "name": "logId",
+              "description": "The unique ID of the maintenance log entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId}",
+        "definition": {
+          "entityName": "AITroubleshootingSession",
+          "schema": {
+            "$ref": "#/backend/entities/AITroubleshootingSession"
+          },
+          "description": "Stores AI troubleshooting sessions for specific equipment. Includes denormalized `departmentId` (from parent `Equipment`) and `equipmentId` (from path) for authorization independence.",
+          "params": [
+            {
+              "name": "equipmentId",
+              "description": "The unique ID of the parent equipment."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique ID of the AI troubleshooting session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId}/messages/{messageId}",
+        "definition": {
+          "entityName": "AITroubleshootingMessage",
+          "schema": {
+            "$ref": "#/backend/entities/AITroubleshootingMessage"
+          },
+          "description": "Stores individual messages within an AI troubleshooting session. Includes denormalized `departmentId`, `equipmentId` (from parent `AITroubleshootingSession`), and `sessionId` (from path) for authorization independence.",
+          "params": [
+            {
+              "name": "equipmentId",
+              "description": "The unique ID of the grandparent equipment."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique ID of the parent AI troubleshooting session."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique ID of the troubleshooting message."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/publicEquipmentShowcase/{equipmentId}",
+        "definition": {
+          "entityName": "Equipment",
+          "schema": {
+            "$ref": "#/backend/entities/Equipment"
+          },
+          "description": "A curated collection of `Equipment` documents for public display on the landing page, exposing only public-facing fields (e.g., `name`, `imageUris`, `description`). This adheres to Structural Segregation by separating public data from the main `equipment` collection's authenticated access. Publicly readable for unauthenticated users.",
+          "params": [
+            {
+              "name": "equipmentId",
+              "description": "The unique ID of the equipment, referencing the original `equipment` document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to be secure, scalable, and debuggable by strictly adhering to the core design principles and strategy mandates. \n\n**Authorization Independence (CRITICAL):**\n1.  **User Profiles and Departments:** `/userProfiles/{userId}` and `/departments/{departmentId}` are top-level collections. Authorization for these is primarily handled by checking `request.auth.uid` against the document ID (for user profiles) or against roles stored within the user's own `/userProfiles/{request.auth.uid}` document. This ensures no `get()` calls are needed to an arbitrary parent document for authorization decisions.\n2.  **Equipment:** `/equipment/{equipmentId}` is also a top-level collection. Access is controlled by the authenticated user's role (e.g., 'Admin', 'Biomedical Engineer') obtained from their own `/userProfiles/{request.auth.uid}` document. If granular access based on department assignment is required (e.g., an engineer can only manage equipment in specific departments), the `UserProfile` can store a `managedDepartmentIds` array. Rules would then check `resource.data.departmentId` (a field on the Equipment document) against `request.auth.uid`'s `managedDepartmentIds`. This avoids fetching the `Department` document for authorization, relying only on the user's self-contained profile data.\n3.  **Subcollections (MaintenanceLog, AITroubleshootingSession, AITroubleshootingMessage):** These nested collections inherently depend on their parent documents. To eliminate `get()` calls in security rules and ensure Authorization Independence (Mandate A):\n    *   `MaintenanceLog` documents (within `/equipment/{equipmentId}/maintenanceLogs/{logId}`) will denormalize the `departmentId` from their parent `Equipment` document upon creation. The `equipmentId` is implicitly available from the path.\n    *   `AITroubleshootingSession` documents (within `/equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId}`) will also denormalize the `departmentId` from their parent `Equipment` document. The `equipmentId` is implicitly available from the path.\n    *   `AITroubleshootingMessage` documents (within `/equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId}/messages/{messageId}`) will denormalize `departmentId` and `equipmentId` from their parent `AITroubleshootingSession` document. The `sessionId` is implicitly available from the path.\n    This denormalization ensures that all necessary authorization context (e.g., `departmentId`, `equipmentId`) is present directly within each document, making rules atomic, simpler, and less prone to cascading failures.\n\n**QAPs (Rules are not Filters):**\n1.  **Top-level Collections:** For collections like `/userProfiles`, `/departments`, `/equipment`, and `/publicEquipmentShowcase`, `list` operations are inherently supported by the top-level structure. Rules can apply `allow list: if <condition>;` where conditions directly reference `request.auth.uid` or fields that are queryable (`departmentId` on `Equipment`).\n2.  **Subcollections with Denormalization:** The denormalized fields (e.g., `departmentId` in `MaintenanceLog`, `departmentId` and `equipmentId` in `AITroubleshootingMessage`) are critical for enabling QAPs for subcollections. When a user requests a `list` of `maintenanceLogs` for a specific `equipmentId`, the security rule can verify access by checking the denormalized `resource.data.departmentId` against the user's `managedDepartmentIds` (from their profile). This allows the rule to evaluate each document being listed based on its own data, preventing the need for complex, inefficient, and non-scalable `get()` operations on parent documents during `list` queries.\n\n**Structural Segregation for Landing Page:** The `/publicEquipmentShowcase/{equipmentId}` collection is created to address the landing page requirement for "
+  }
+}

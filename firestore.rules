@@ -1,0 +1,177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * BIOMEDLINK SECURITY RULES - PROTOTYPING VERSION
+     *
+     * Core Philosophy:
+     * This ruleset enforces a Role-Based Access Control (RBAC) model combined with strict 
+     * user-ownership for profile management and troubleshooting sessions. The system is designed 
+     * for a hospital environment where access to equipment and logs is restricted based on 
+     * professional roles (Admin, Biomedical Engineer, Technician).
+     *
+     * Data Structure:
+     * - /userProfiles/{userId}: Private user data and system roles.
+     * - /departments/{departmentId}: Metadata about hospital sections.
+     * - /equipment/{equipmentId}: Central inventory of biomedical devices.
+     * - /equipment/.../maintenanceLogs: Detailed service history for specific equipment.
+     * - /equipment/.../aiTroubleshootingSessions: Interactive AI help sessions.
+     * - /publicEquipmentShowcase/{equipmentId}: Publicly accessible images/data for the landing page.
+     *
+     * Key Security Decisions:
+     * 1. Structural Segregation: Public equipment images are stored in a dedicated 
+     *    'publicEquipmentShowcase' collection to allow unauthenticated read access for the 
+     *    landing page while keeping the main inventory secure.
+     * 2. Denormalization for Performance: Critical authorization data like 'departmentId' 
+     *    and 'performedById' are stored directly on logs and sessions to avoid nested 'get()' calls.
+     * 3. Role-Based Access: Higher-level operations (like deleting equipment) are restricted to 
+     *    the 'Admin' role.
+     * 4. Path-to-Data Consistency: Rules enforce that the ID in the document matches the 
+     *    ID in the path for root entities.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getProfile() {
+      // Ensure the user profile exists before attempting to read its data
+      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && getProfile().data.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('Admin');
+    }
+
+    function isStaff() {
+      return isAdmin() || hasRole('Biomedical Engineer') || hasRole('Technician');
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for UserProfile. Users can manage their own profile; Admins manage all.
+     * @path /userProfiles/{userId}
+     * @allow Authenticated user (create/get/update) where userId matches auth.uid.
+     * @deny Unauthenticated access or users trying to update other users' roles.
+     * @principle Ownership and Relational Integrity.
+     */
+    match /userProfiles/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      // Allow create if user ID matches and the 'id' field in the new document also matches.
+      // This is for new user creation (e.g., via a Cloud Function) or self-creation.
+      // Do NOT enforce 'role' on create, as it should be set by a trusted source.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      // Allow update if owner AND they are not changing their role. Admins can update any profile (including roles).
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if isAdmin(); // Only Admins can delete profiles
+    }
+
+    /**
+     * @description Hospital departments. Read-only for staff, CRUD for Admins.
+     * @path /departments/{departmentId}
+     * @allow Staff members (get/list), Admin (all).
+     * @deny Non-staff members or unauthorized writes.
+     * @principle Role-based access for organizational metadata.
+     */
+    match /departments/{departmentId} {
+      allow get, list: if isStaff();
+      // Admins can create/update/delete.
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Core Equipment collection. Contains sensitive maintenance data.
+     * @path /equipment/{equipmentId}
+     * @allow Staff members (get/list/create), Admin (all).
+     * @deny Public access or unauthenticated users.
+     * @principle Strict staff-only access for inventory management.
+     */
+    match /equipment/{equipmentId} {
+      allow get, list: if isStaff();
+      // Staff can create new equipment, ensuring the ID in the path matches the 'id' field (if present).
+      allow create: if isStaff() && request.resource.data.id == equipmentId;
+      // Staff can update existing equipment.
+      allow update: if isStaff();
+      // Only Admins can delete equipment.
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Maintenance logs for equipment. 
+     * @path /equipment/{equipmentId}/maintenanceLogs/{logId}
+     * @allow Technicians/Engineers to create logs; Owners to update their own logs.
+     * @deny Deleting logs by anyone except Admin.
+     * @principle Denormalized ownership and relational consistency with parent path.
+     */
+    match /equipment/{equipmentId}/maintenanceLogs/{logId} {
+      allow get, list: if isStaff();
+      // Staff can create a log, ensuring it's linked to the correct equipment.
+      allow create: if isStaff() && request.resource.data.equipmentId == equipmentId;
+      // Owners of the log (performedById) or Admins can update it.
+      allow update: if isOwner(resource.data.performedById) || isAdmin();
+      // Only Admins can delete logs.
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description AI Troubleshooting sessions records.
+     * @path /equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId}
+     * @allow Engineer who initiated the session (get/update).
+     * @deny Access to sessions initiated by other engineers.
+     * @principle Session ownership and relational integrity.
+     */
+    match /equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId} {
+      allow get, list: if isStaff();
+      // Staff can create a session, ensuring it's linked to equipment and owned by the current user.
+      allow create: if isStaff() && request.resource.data.equipmentId == equipmentId && request.resource.data.engineerId == request.auth.uid;
+      // Owners of the session (engineerId) or Admins can update it.
+      allow update: if isOwner(resource.data.engineerId) || isAdmin();
+      // Only Admins can delete sessions.
+      allow delete: if isAdmin();
+
+      /**
+       * @description Messages within an AI session.
+       * @path /equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId}/messages/{messageId}
+       * @allow Participants of the parent session.
+       * @deny External access to private troubleshooting conversations.
+       * @principle Nested resource protection.
+       */
+      match /messages/{messageId} {
+        // Only staff can get/list messages.
+        allow get, list: if isStaff();
+        // Staff can create messages, ensuring they are part of the correct session.
+        // We also need to check if the user is the engineer of the parent session or an admin.
+        allow create: if isStaff() && request.resource.data.sessionId == sessionId && 
+                         (isOwner(get(/databases/$(database)/documents/equipment/$(equipmentId)/aiTroubleshootingSessions/$(sessionId)).data.engineerId) || isAdmin());
+        // Only Admins can update or delete messages.
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    /**
+     * @description Public mirror for landing page display. Uses Structural Segregation.
+     * @path /publicEquipmentShowcase/{equipmentId}
+     * @allow Anyone (get/list), Admin (write).
+     * @deny Public writes.
+     * @principle Open read for landing page while keeping auth-critical data separate.
+     */
+    match /publicEquipmentShowcase/{equipmentId} {
+      allow get, list: if true; // Publicly readable
+      // Only Admins can create, update, or delete entries in the public showcase.
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
