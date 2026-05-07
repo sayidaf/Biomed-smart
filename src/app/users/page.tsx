@@ -63,7 +63,6 @@ export default function UsersManagementPage() {
   const { toast } = useToast()
   const { user: currentUser } = useUser()
   
-  // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
@@ -120,7 +119,7 @@ export default function UsersManagementPage() {
 
     toast({
       title: "Profile Registered",
-      description: "Remember to create this user manually in Firebase Console -> Auth tab.",
+      description: "Note: You must now manually add this email/PIN to the Firebase Auth Console.",
     })
 
     setIsCreateOpen(false)
@@ -153,7 +152,7 @@ export default function UsersManagementPage() {
 
     toast({
       title: "Profile Updated",
-      description: "Changes saved. Ensure email matches the Firebase Auth record.",
+      description: "Staff records updated successfully.",
     })
 
     setIsEditOpen(false)
@@ -167,7 +166,7 @@ export default function UsersManagementPage() {
     setUserToDelete(null)
     toast({
       title: "User Removed",
-      description: "The staff registry entry has been deleted.",
+      description: "Profile has been deleted from the registry.",
     })
   }
 
@@ -210,7 +209,7 @@ export default function UsersManagementPage() {
           
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="shadow-lg shadow-primary/20 h-11 px-6">
+              <Button className="shadow-lg shadow-primary/20 h-11 px-6 w-full md:w-auto">
                 <UserPlus className="w-5 h-5 mr-2" />
                 Add New Engineer
               </Button>
@@ -225,7 +224,7 @@ export default function UsersManagementPage() {
               <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 flex items-start gap-2 mb-2">
                 <Info className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
                 <p className="text-[10px] text-orange-800 leading-tight">
-                  <strong>Protocol Note:</strong> After saving, manually create this user in the <strong>Firebase Console Auth Tab</strong> using the same email and PIN.
+                  <strong>Important:</strong> Client-side Firebase cannot create other users. After saving, you MUST manually add this email/PIN in the <strong>Firebase Console Auth Tab</strong>.
                 </p>
               </div>
               <form onSubmit={handleCreateUser} className="space-y-4 py-2">
@@ -303,7 +302,6 @@ export default function UsersManagementPage() {
           </Dialog>
         </div>
 
-        {/* Edit User Dialog */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -312,12 +310,6 @@ export default function UsersManagementPage() {
                 Update the professional registry details for this engineer.
               </DialogDescription>
             </DialogHeader>
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-start gap-2 mb-2">
-              <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-              <p className="text-[10px] text-blue-800 leading-tight">
-                <strong>Important:</strong> If you change the email, ensure the corresponding <strong>Auth</strong> record is updated in the Firebase Console.
-              </p>
-            </div>
             <form onSubmit={handleUpdateUser} className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -366,9 +358,9 @@ export default function UsersManagementPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>Engineer</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead className="hidden sm:table-cell">Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden md:table-cell">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -384,22 +376,25 @@ export default function UsersManagementPage() {
                     <TableRow key={u.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
                             <User className="w-4 h-4 text-primary" />
                           </div>
-                          <span className="font-semibold">{u.firstName} {u.lastName}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold truncate">{u.firstName} {u.lastName}</span>
+                            <span className="text-[10px] text-muted-foreground sm:hidden truncate">{u.email}</span>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">{u.email}</TableCell>
                       <TableCell>
                         <Badge variant={u.role?.toString().toLowerCase() === 'admin' ? 'default' : 'secondary'} className="text-[10px] uppercase font-bold">
                           {u.role}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
                           <CheckCircle2 className="w-3 h-3" />
-                          Registry Active
+                          Active
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -407,7 +402,7 @@ export default function UsersManagementPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="text-primary hover:text-primary hover:bg-primary/10"
+                            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
                             onClick={() => handleEditClick(u)}
                             disabled={u.id === currentUser?.uid}
                           >
@@ -416,7 +411,7 @@ export default function UsersManagementPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setUserToDelete(u.id)}
                             disabled={u.id === currentUser?.uid}
                           >
@@ -444,7 +439,7 @@ export default function UsersManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Security Protocol: Delete Staff?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the engineer's profile from the Staff Registry. This action cannot be undone.
+              This will permanently remove the engineer's profile from the registry. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

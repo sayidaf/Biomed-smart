@@ -14,11 +14,10 @@ import {
   Loader2,
   Users,
   ShieldCheck,
-  UserPlus,
-  UserCheck,
   Database,
   TrendingUp,
-  Award
+  Award,
+  UserCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
@@ -92,16 +91,16 @@ export default function DashboardPage() {
             <Database className="w-8 h-8 text-orange-600" />
           </div>
           <h2 className="text-2xl font-bold">Profile Not Found</h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm leading-relaxed">
             Your profile record does not exist in the <strong>userProfiles</strong> collection. 
           </p>
-          <div className="p-4 bg-muted rounded-lg text-left text-xs font-mono break-words">
+          <div className="p-4 bg-muted rounded-lg text-left text-xs font-mono break-words border border-border">
             <p>1. Go to Firebase Console &gt; Firestore</p>
             <p>2. Create collection: <strong>userProfiles</strong></p>
             <p>3. Add document with ID: <strong>{user?.uid}</strong></p>
             <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
           </div>
-          <Button onClick={() => window.location.reload()} variant="outline" className="w-full">Refresh Page</Button>
+          <Button onClick={() => window.location.reload()} variant="outline" className="w-full">Refresh Protocol</Button>
         </div>
       </AppShell>
     )
