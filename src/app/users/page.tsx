@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,10 +14,10 @@ import {
   Trash2, 
   Mail,
   User,
-  MoreVertical,
   CheckCircle2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
@@ -48,7 +48,6 @@ export default function UsersManagementPage() {
   const { user: currentUser } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   
-  // Get current user's profile to check role
   const currentUserProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
@@ -56,15 +55,14 @@ export default function UsersManagementPage() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc(currentUserProfileRef)
 
-  // Form State
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
     lastName: "",
-    role: "Biomedical Engineer"
+    role: "Biomedical Engineer",
+    password: "" // Registry reference only
   })
 
-  // Only query if user is an Admin
   const usersQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'Admin') return null
     return collection(db, "userProfiles")
@@ -81,13 +79,16 @@ export default function UsersManagementPage() {
     
     setDocumentNonBlocking(userRef, {
       id: newUserId,
-      ...formData,
+      email: formData.email,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      role: formData.role,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true })
 
     setIsDialogOpen(false)
-    setFormData({ email: "", firstName: "", lastName: "", role: "Biomedical Engineer" })
+    setFormData({ email: "", firstName: "", lastName: "", role: "Biomedical Engineer", password: "" })
   }
 
   const handleDeleteUser = (userId: string) => {
@@ -113,8 +114,7 @@ export default function UsersManagementPage() {
           <AlertCircle className="w-12 h-12 text-destructive" />
           <h2 className="text-2xl font-headline font-bold">Unauthorized Access</h2>
           <p className="text-muted-foreground max-w-md">
-            You do not have the required permissions to view or manage staff. 
-            Please contact a System Administrator if you believe this is an error.
+            Only Administrators can access the Staff Registry.
           </p>
           <Button onClick={() => router.push("/dashboard")}>Return to Dashboard</Button>
         </div>
@@ -129,23 +129,23 @@ export default function UsersManagementPage() {
           <div>
             <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
               <Users className="w-8 h-8" />
-              Staff Management
+              Staff Registry
             </h1>
-            <p className="text-muted-foreground mt-1">Manage biomedical engineering personnel and system roles.</p>
+            <p className="text-muted-foreground mt-1">Initialize and monitor biomedical engineer profiles for the 2026 terminal.</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="shadow-lg shadow-primary/20">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add New Engineer
+              <Button className="shadow-lg shadow-primary/20 h-11 px-6">
+                <UserPlus className="w-5 h-5 mr-2" />
+                Register New Engineer
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Create Engineer Profile</DialogTitle>
+                <DialogTitle>Staff Registry Entry</DialogTitle>
                 <DialogDescription>
-                  Enter the details for the new biomedical engineer. They will be added to the registry.
+                  Enter credentials to initialize a new engineer.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4 py-4">
@@ -173,14 +173,34 @@ export default function UsersManagementPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Work Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="jane.doe@hospital.com" 
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    required 
-                  />
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      className="pl-10"
+                      placeholder="name@hospital.com" 
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      required 
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Assigned Security PIN</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      id="password" 
+                      type="password"
+                      className="pl-10"
+                      placeholder="••••••••" 
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      required 
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">Note: Staff should use the 'Initialize account' link on login to set their permanent PIN.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">System Role</Label>
@@ -196,7 +216,7 @@ export default function UsersManagementPage() {
                   </select>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" className="w-full">Create Registry Entry</Button>
+                  <Button type="submit" className="w-full h-11 font-bold">Initialize Registry Entry</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -241,7 +261,7 @@ export default function UsersManagementPage() {
                     <TableCell>
                       <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
                         <CheckCircle2 className="w-3 h-3" />
-                        Active
+                        Registry Active
                       </div>
                     </TableCell>
                     <TableCell className="text-right">

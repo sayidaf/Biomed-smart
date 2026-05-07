@@ -46,18 +46,14 @@ export default function DashboardPage() {
     }))
   }, [])
 
-  // Check role
   const profileRef = useMemoFirebase(() => {
     if (!db || !user) return null
     return doc(db, "userProfiles", user.uid)
   }, [db, user])
   const { data: profile } = useDoc(profileRef)
 
-  // Real-time Equipment for faulty list - Conditional
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
+    if (!db || !profile || profile.role === 'Admin') return null
     return collection(db, "equipment")
   }, [db, profile])
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
@@ -71,7 +67,6 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div className="space-y-8">
-        {/* Header Actions */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -85,149 +80,133 @@ export default function DashboardPage() {
             </div>
             <p className="text-muted-foreground">
               {currentDate ? `Today is ${currentDate}. ` : ''}
-              System status: Active. Monitoring hardware registry.
+              System status: Active. 2026 Facility Protocol engaged.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </Button>
-            <Link href="/equipment">
-              <Button size="sm" className="shadow-lg shadow-primary/20">
-                <Plus className="w-4 h-4 mr-2" />
-                New Asset
+          {!isAdmin && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">
+                <Filter className="w-4 h-4 mr-2" />
+                Filter
               </Button>
-            </Link>
-          </div>
+              <Link href="/equipment">
+                <Button size="sm" className="shadow-lg shadow-primary/20">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Asset
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
 
-        {/* Admin Quick Actions */}
-        {isAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {isAdmin ? (
+          <div className="space-y-6">
             <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <div className="space-y-1">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Users className="w-6 h-6 text-primary" />
                     Administrative Control Panel
                   </CardTitle>
-                  <CardDescription>Manage your biomedical engineering team and permissions.</CardDescription>
+                  <CardDescription className="text-base">Centrally manage your biomedical engineering team and facility permissions.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="flex gap-4">
                 <Link href="/users">
-                  <Button size="sm" className="gap-2">
-                    <UserPlus className="w-4 h-4" />
-                    Staff Registry
-                  </Button>
-                </Link>
-                <Link href="/reports">
-                  <Button variant="outline" size="sm">
-                    System Audit
+                  <Button size="lg" className="gap-2 px-8">
+                    <UserPlus className="w-5 h-5" />
+                    Open Staff Registry
                   </Button>
                 </Link>
               </CardContent>
             </Card>
-            
-            <Card className="border-none shadow-sm bg-accent/5 border-l-4 border-l-accent">
-               <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-accent" />
-                    System Compliance
-                  </CardTitle>
-                  <CardDescription>Monitor ISO compliance across all hospital departments.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                 <Link href="/reports">
-                   <Button variant="secondary" size="sm" className="gap-2">
-                     Generate Compliance Report
-                     <ChevronRight className="w-4 h-4" />
-                   </Button>
-                 </Link>
-              </CardContent>
-            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Staff Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Monitor technician activities and facility audits from the Staff Management section.</p>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">System Audit</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">All system logs are being recorded for the 2026 compliance review.</p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        )}
-
-        {/* Stats Grid */}
-        <StatsGrid />
-
-        {/* Charts & Lists */}
-        <MaintenanceOverview />
-
-        {/* Recent Activities & Urgent Faults */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-headline">Urgent Fault Reports</CardTitle>
-              <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
-                {faultyEquipment?.length || 0} Critical
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {isEqLoading ? (
-                  <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-                ) : faultyEquipment && faultyEquipment.length > 0 ? (
-                  faultyEquipment.map((eq) => (
-                    <div key={eq.id} className="flex gap-4 p-4 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors group cursor-pointer">
-                      <div className="w-10 h-10 shrink-0 rounded-lg bg-destructive/10 flex items-center justify-center">
-                        <AlertCircle className="w-5 h-5 text-destructive" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</h4>
-                          <span className="text-[10px] text-muted-foreground uppercase font-bold">URGENT</span>
+        ) : (
+          <>
+            <StatsGrid />
+            <MaintenanceOverview />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border-none shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-headline">Urgent Fault Reports</CardTitle>
+                  <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
+                    {faultyEquipment?.length || 0} Critical
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {isEqLoading ? (
+                      <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+                    ) : faultyEquipment && faultyEquipment.length > 0 ? (
+                      faultyEquipment.map((eq) => (
+                        <div key={eq.id} className="flex gap-4 p-4 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors group cursor-pointer">
+                          <div className="w-10 h-10 shrink-0 rounded-lg bg-destructive/10 flex items-center justify-center">
+                            <AlertCircle className="w-5 h-5 text-destructive" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</h4>
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold">URGENT</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-2">Unit reported as faulty. Technical diagnosis required.</p>
+                            <Badge variant="secondary" className="text-[10px] font-mono">{eq.serialNumber}</Badge>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mb-2">Unit reported as faulty. Technical diagnosis required.</p>
-                        <Badge variant="secondary" className="text-[10px] font-mono">{eq.serialNumber}</Badge>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <ShieldCheck className="w-8 h-8 text-green-500 mb-2 opacity-50" />
+                        <p className="text-sm text-muted-foreground">All systems clear. No critical faults reported.</p>
                       </div>
-                      <Button variant="ghost" size="icon" className="shrink-0 self-center">
-                        <ArrowUpRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <ShieldCheck className="w-8 h-8 text-green-500 mb-2 opacity-50" />
-                    <p className="text-sm text-muted-foreground">All systems clear. No critical faults reported.</p>
+                    )}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-headline">System Activity Log</CardTitle>
-              <Button variant="ghost" size="sm">History</Button>
-            </CardHeader>
-            <CardContent>
-               <div className="relative space-y-6 before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted">
-                {[
-                  { id: '1', user: 'Terminal', action: 'System node authenticated for', item: profile?.role || 'Guest', date: 'LIVE' },
-                ].map((log) => (
-                  <div key={log.id} className="relative pl-10">
-                    <div className="absolute left-0 top-1 w-9 h-9 rounded-full bg-card border-2 border-primary flex items-center justify-center z-10">
-                      <Wrench className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm">
-                        <span className="font-bold text-primary">{log.user}</span>{' '}
-                        <span className="text-muted-foreground">{log.action}</span>{' '}
-                        <span className="font-semibold">{log.item}</span>
-                      </p>
-                      <span className="text-[10px] text-muted-foreground uppercase font-medium">{log.date}</span>
+              <Card className="border-none shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-headline">System Activity Log</CardTitle>
+                </CardHeader>
+                <CardContent>
+                   <div className="relative space-y-6 before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted">
+                    <div className="relative pl-10">
+                      <div className="absolute left-0 top-1 w-9 h-9 rounded-full bg-card border-2 border-primary flex items-center justify-center z-10">
+                        <Wrench className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm">
+                          <span className="font-bold text-primary">Terminal</span>{' '}
+                          <span className="text-muted-foreground">System node authenticated for</span>{' '}
+                          <span className="font-semibold">{profile?.role || 'Engineer'}</span>
+                        </p>
+                        <span className="text-[10px] text-muted-foreground uppercase font-medium">LIVE</span>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </AppShell>
   )
