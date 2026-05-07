@@ -13,16 +13,18 @@ import {
   EyeOff,
   Activity,
   Zap,
-  Microscope
+  Microscope,
+  UserPlus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useUser, useAuth } from "@/firebase"
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login"
+import { useUser, useAuth, useFirestore } from "@/firebase"
+import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { doc, serverTimestamp, setDoc } from "firebase/firestore"
 import {
   Carousel,
   CarouselContent,
@@ -33,19 +35,22 @@ export default function LandingPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
   const auth = useAuth()
+  const db = useFirestore()
   const { toast } = useToast()
 
-  const [view, setView] = useState<"hero" | "auth">("hero")
+  const [view, setView] = useState<"hero" | "auth" | "register">("hero")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
   useEffect(() => {
-    if (user) {
+    if (user && !isUserLoading) {
       router.push("/dashboard")
     }
-  }, [user, router])
+  }, [user, isUserLoading, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +76,41 @@ export default function LandingPage() {
     }
   }
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!auth || !db || !email || !password || !firstName || !lastName) return
+    
+    setAuthLoading(true)
+    try {
+      const userCredential = await initiateEmailSignUp(auth, email, password)
+      const newUser = userCredential.user
+      
+      // Create Firestore Profile immediately
+      await setDoc(doc(db, "userProfiles", newUser.uid), {
+        id: newUser.uid,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        role: "Biomedical Engineer", // Default role
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+
+      toast({
+        title: "Registry Initialized",
+        description: "Professional profile created. Redirecting to terminal...",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Initialization Failed",
+        description: error.message || "Could not create system profile.",
+      })
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   if (isUserLoading) return (
     <div className="h-screen w-full flex items-center justify-center bg-background">
       <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -78,11 +118,11 @@ export default function LandingPage() {
   )
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden bg-background py-12 md:py-0">
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden bg-background py-12 md:py-0 px-4">
       {/* Background grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       
-      <div className="relative z-10 w-full max-w-6xl px-4 md:px-6 flex flex-col items-center gap-8 md:gap-12">
+      <div className="relative z-10 w-full max-w-6xl flex flex-col items-center gap-8 md:gap-12">
         <div className="flex flex-col items-center gap-4 md:gap-6 text-center">
           <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40 border border-primary/20">
             <ShieldCheck className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
@@ -91,7 +131,7 @@ export default function LandingPage() {
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline font-bold text-foreground tracking-tighter">
               BioMedLink <span className="text-primary">Core</span>
             </h1>
-            <p className="text-base md:text-xl lg:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed px-4 md:px-0">
+            <p className="text-base md:text-xl lg:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed">
               Advancing Healthcare through <span className="text-foreground font-bold italic">Precision Engineering</span> and <span className="text-foreground font-bold italic">Absolute Reliability</span>.
             </p>
           </div>
@@ -130,7 +170,7 @@ export default function LandingPage() {
                           data-ai-hint={img.imageHint}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-10">
-                          <div className="space-y-2">
+                          <div className="space-y-2 text-left">
                             <Badge className="bg-primary/20 text-white border-white/20 backdrop-blur-md mb-2">Standard Protocol</Badge>
                             <h2 className="text-3xl font-bold text-white tracking-tight">{img.description}</h2>
                           </div>
@@ -147,11 +187,16 @@ export default function LandingPage() {
                 Access Management Terminal
                 <ArrowRight className="ml-2 w-5 h-5 md:w-6 md:h-6 transition-transform group-hover:translate-x-1" />
               </Button>
-              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] text-center">Authorized Access Only • System Integrity v2.4</p>
+              <button 
+                onClick={() => setView("register")}
+                className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors uppercase tracking-[0.2em]"
+              >
+                Initialize New Profile
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="w-full max-w-md animate-in fade-in zoom-in duration-300 px-4 md:px-0">
+        ) : view === "auth" ? (
+          <div className="w-full max-w-md animate-in fade-in zoom-in duration-300">
             <Card className="border-none shadow-2xl rounded-[1.5rem] md:rounded-[2.5rem] bg-card/50 backdrop-blur-xl border border-border overflow-hidden">
               <CardContent className="p-8 md:p-12 space-y-6 md:space-y-8">
                 <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors">
@@ -186,6 +231,49 @@ export default function LandingPage() {
                 <p className="text-[10px] text-center text-muted-foreground uppercase leading-relaxed tracking-wider">
                   By accessing this terminal, you agree to comply with medical equipment safety protocols.
                 </p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="w-full max-w-md animate-in fade-in zoom-in duration-300">
+            <Card className="border-none shadow-2xl rounded-[1.5rem] md:rounded-[2.5rem] bg-card/50 backdrop-blur-xl border border-border overflow-hidden">
+              <CardContent className="p-8 md:p-10 space-y-6">
+                <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                  Return
+                </button>
+                <div className="space-y-1">
+                  <h2 className="text-2xl md:text-3xl font-headline font-bold tracking-tight">System Registry</h2>
+                  <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Initialize Professional Account</p>
+                </div>
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">First Name</Label>
+                      <Input placeholder="Jane" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="h-11 bg-background/50" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Last Name</Label>
+                      <Input placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="h-11 bg-background/50" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Work Email</Label>
+                    <Input type="email" placeholder="jane@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11 bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Security PIN</Label>
+                    <div className="relative">
+                      <Input type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-11 bg-background/50 pr-12" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full h-12 font-bold shadow-lg shadow-primary/20" disabled={authLoading}>
+                    {authLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Register Profile"}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </div>

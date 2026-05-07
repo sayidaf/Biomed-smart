@@ -17,18 +17,21 @@ import {
   Database,
   TrendingUp,
   Award,
-  UserCheck
+  UserCheck,
+  Copy
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
 import { collection, doc } from "firebase/firestore"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const router = useRouter()
+  const { toast } = useToast()
   const [currentDate, setCurrentDate] = useState<string | null>(null)
 
   useEffect(() => {
@@ -73,6 +76,16 @@ export default function DashboardPage() {
   const faultyEquipment = equipment?.filter(eq => eq.status === 'FAULTY').slice(0, 3)
   const engineerCount = allUsers?.filter(u => u.role === 'Biomedical Engineer').length || 0
 
+  const copyUid = () => {
+    if (user?.uid) {
+      navigator.clipboard.writeText(user.uid)
+      toast({
+        title: "UID Copied",
+        description: "User ID saved to clipboard.",
+      })
+    }
+  }
+
   if (isUserLoading || isProfileLoading) {
     return (
       <AppShell>
@@ -90,17 +103,35 @@ export default function DashboardPage() {
           <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
             <Database className="w-8 h-8 text-orange-600" />
           </div>
-          <h2 className="text-2xl font-bold">Profile Not Found</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Your profile record does not exist in the <strong>userProfiles</strong> collection. 
-          </p>
-          <div className="p-4 bg-muted rounded-lg text-left text-xs font-mono break-words border border-border">
-            <p>1. Go to Firebase Console &gt; Firestore</p>
-            <p>2. Create collection: <strong>userProfiles</strong></p>
-            <p>3. Add document with ID: <strong>{user?.uid}</strong></p>
-            <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">Registry Entry Missing</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Your login is active, but no professional profile was found in the <strong>userProfiles</strong> database for your account.
+            </p>
           </div>
-          <Button onClick={() => window.location.reload()} variant="outline" className="w-full">Refresh Protocol</Button>
+          
+          <div className="p-6 bg-muted rounded-xl text-left space-y-4 border border-border shadow-inner">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Your System UID (Use as Doc ID)</Label>
+              <div className="flex items-center gap-2 bg-background p-2 rounded border font-mono text-xs overflow-hidden">
+                <span className="truncate flex-1">{user?.uid}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={copyUid}>
+                  <Copy className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="text-[11px] space-y-2 text-muted-foreground">
+              <p>1. Open Firebase Console &gt; Firestore</p>
+              <p>2. Navigate to collection: <strong>userProfiles</strong></p>
+              <p>3. Add document with ID: <strong>(Paste your UID from above)</strong></p>
+              <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
+              <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong>, <strong>id</strong></p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => window.location.reload()} className="w-full">Refresh Terminal</Button>
+            <Button variant="outline" onClick={() => router.push("/")} className="w-full">Back to Login</Button>
+          </div>
         </div>
       </AppShell>
     )
