@@ -15,9 +15,19 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
+import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
+import { doc } from "firebase/firestore"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { user } = useUser()
+  const db = useFirestore()
+
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return doc(db, "userProfiles", user.uid)
+  }, [db, user])
+  const { data: profile } = useDoc(profileRef)
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-body">
@@ -83,8 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Button>
             <div className="flex items-center gap-3 pl-2 border-l border-border ml-2">
               <div className="hidden lg:flex flex-col items-end">
-                <span className="text-sm font-semibold">Eng. James Wilson</span>
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">Sr. Biomedical Engineer</span>
+                <span className="text-sm font-semibold">{profile?.firstName || user?.email?.split('@')[0]} {profile?.lastName || ''}</span>
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                  {profile?.role || 'Initializing...'}
+                </span>
               </div>
               <Button variant="ghost" size="icon" className="rounded-full bg-secondary">
                 <User className="w-5 h-5" />
