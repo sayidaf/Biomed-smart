@@ -1,6 +1,7 @@
 
 "use client"
 
+import { useState } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,10 +16,13 @@ import {
   Calendar,
   Activity,
   ChevronRight,
-  Printer
+  Printer,
+  Loader2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { equipment as mockEquipment, departments } from "@/lib/mock-data"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc, serverTimestamp } from "firebase/firestore"
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import {
   Table,
   TableBody,
@@ -27,8 +31,90 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
 export default function EquipmentPage() {
+  const db = useFirestore()
+  const { user: currentUser } = useUser()
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+
+  // Check role
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !currentUser) return null
+    return doc(db, "userProfiles", currentUser.uid)
+  }, [db, currentUser])
+  const { data: profile } = useDoc(profileRef)
+
+  // Real-time Equipment
+  const equipmentQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return collection(db, "equipment")
+  }, [db])
+  const { data: equipment, isLoading } = useCollection(equipmentQuery)
+
+  // Real-time Departments for reference
+  const deptQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return collection(db, "departments")
+  }, [db])
+  const { data: departments } = useCollection(deptQuery)
+
+  const [formData, setFormData] = useState({
+    name: "",
+    manufacturer: "",
+    modelNumber: "",
+    serialNumber: "",
+    departmentId: "",
+    status: "OPERATIONAL",
+    nextServiceDate: new Date().toISOString().split('T')[0]
+  })
+
+  const handleAddEquipment = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!db) return
+
+    const newId = `eq-${Math.random().toString(36).substring(2, 9)}`
+    const eqRef = doc(db, "equipment", newId)
+
+    setDocumentNonBlocking(eqRef, {
+      ...formData,
+      id: newId,
+      purchaseDate: new Date().toISOString().split('T')[0],
+      installationDate: new Date().toISOString().split('T')[0],
+      warrantyExpiryDate: new Date(Date.now() + 31536000000).toISOString().split('T')[0],
+      manualUris: [],
+      imageUris: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true })
+
+    setIsDialogOpen(false)
+    setFormData({
+      name: "",
+      manufacturer: "",
+      modelNumber: "",
+      serialNumber: "",
+      departmentId: "",
+      status: "OPERATIONAL",
+      nextServiceDate: new Date().toISOString().split('T')[0]
+    })
+  }
+
+  const filteredEquipment = equipment?.filter(eq => 
+    eq.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -38,18 +124,63 @@ export default function EquipmentPage() {
             <p className="text-muted-foreground mt-1">Manage and track hospital biomedical assets across all departments.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-             <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm">
               <Printer className="w-4 h-4 mr-2" />
               QR Labels
             </Button>
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Button size="sm" className="shadow-lg shadow-primary/20">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Equipment
-            </Button>
+            {profile?.role === 'Admin' && (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="shadow-lg shadow-primary/20">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Equipment
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Register New Equipment</DialogTitle>
+                    <DialogDescription>Input hardware details to add to the inventory.</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleAddEquipment} className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Equipment Name</Label>
+                      <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Manufacturer</Label>
+                        <Input value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Model Number</Label>
+                        <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Serial Number</Label>
+                        <Input value={formData.serialNumber} onChange={e => setFormData({...formData, serialNumber: e.target.value})} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Department</Label>
+                        <select 
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                          value={formData.departmentId}
+                          onChange={e => setFormData({...formData, departmentId: e.target.value})}
+                          required
+                        >
+                          <option value="">Select Dept</option>
+                          {departments?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit" className="w-full">Initialize Asset</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
 
@@ -58,23 +189,12 @@ export default function EquipmentPage() {
             <div className="p-4 border-b border-border bg-muted/10 flex flex-col md:flex-row gap-4 items-center">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search by name, serial number, model or manufacturer..." className="pl-9 bg-background h-10" />
-              </div>
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <Button variant="outline" className="gap-2 shrink-0">
-                  <Filter className="w-4 h-4" />
-                  Filter
-                </Button>
-                <select className="flex h-10 w-full md:w-40 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <option>All Departments</option>
-                  {departments.map(d => <option key={d.id}>{d.name}</option>)}
-                </select>
-                <select className="flex h-10 w-full md:w-36 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <option>Any Status</option>
-                  <option>Operational</option>
-                  <option>Faulty</option>
-                  <option>Maintenance</option>
-                </select>
+                <Input 
+                  placeholder="Search by name, serial number..." 
+                  className="pl-9 bg-background h-10"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
 
@@ -90,65 +210,54 @@ export default function EquipmentPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockEquipment.map((eq) => (
-                  <TableRow key={eq.id} className="group cursor-pointer">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                          <Monitor className="w-5 h-5 text-primary" />
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                ) : filteredEquipment && filteredEquipment.length > 0 ? (
+                  filteredEquipment.map((eq) => (
+                    <TableRow key={eq.id} className="group cursor-pointer">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                            <Monitor className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</span>
+                            <span className="text-[10px] text-muted-foreground">{eq.manufacturer} • {eq.modelNumber}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</span>
-                          <span className="text-[10px] text-muted-foreground">{eq.manufacturer} • {eq.modelNumber}</span>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{eq.serialNumber}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-medium text-[11px]">
+                          {departments?.find(d => d.id === eq.departmentId)?.name || 'N/A'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            eq.status === 'OPERATIONAL' ? 'bg-green-500' :
+                            eq.status === 'FAULTY' ? 'bg-destructive animate-pulse' :
+                            'bg-orange-400'
+                          }`} />
+                          <span className="text-xs font-medium">{eq.status}</span>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{eq.serialNumber}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-medium text-[11px]">
-                        {departments.find(d => d.id === eq.departmentId)?.code}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          eq.status === 'OPERATIONAL' ? 'bg-green-500' :
-                          eq.status === 'FAULTY' ? 'bg-destructive animate-pulse' :
-                          'bg-orange-400'
-                        }`} />
-                        <span className="text-xs font-medium">{eq.status}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        {eq.nextServiceDate}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Activity className="w-4 h-4 text-accent" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          {eq.nextServiceDate}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon"><ChevronRight className="w-4 h-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No equipment found.</TableCell></TableRow>
+                )}
               </TableBody>
             </Table>
-            <div className="p-4 border-t border-border bg-muted/5 flex items-center justify-between">
-               <span className="text-xs text-muted-foreground">Showing 3 of 1,284 assets</span>
-               <div className="flex items-center gap-1">
-                 <Button variant="outline" size="sm" disabled>Previous</Button>
-                 <Button variant="outline" size="sm">Next</Button>
-               </div>
-            </div>
           </CardContent>
         </Card>
       </div>
