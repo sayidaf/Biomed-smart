@@ -29,8 +29,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="text-xl font-headline font-bold text-primary">BioMedLink</span>
         </div>
-        <SidebarNav />
-        <div className="mt-auto p-4 m-4 rounded-xl bg-secondary/50 border border-secondary">
+        <div className="flex-1 overflow-hidden">
+          <SidebarNav />
+        </div>
+        <div className="p-4 m-4 rounded-xl bg-secondary/50 border border-secondary shrink-0">
           <div className="flex items-center gap-2 mb-2">
             <Zap className="w-4 h-4 text-accent" />
             <span className="text-xs font-bold uppercase tracking-wider text-secondary-foreground">System Status</span>
@@ -52,12 +54,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-64">
-                <div className="p-6 flex items-center gap-2 border-b">
+              <SheetContent side="left" className="p-0 w-64 flex flex-col">
+                <div className="p-6 flex items-center gap-2 border-b shrink-0">
                    <ShieldCheck className="w-6 h-6 text-primary" />
                    <span className="text-xl font-headline font-bold text-primary">BioMedLink</span>
                 </div>
-                <SidebarNav />
+                <div className="flex-1 overflow-hidden">
+                  <SidebarNav />
+                </div>
               </SheetContent>
             </Sheet>
             
