@@ -57,8 +57,8 @@ export function SidebarNav() {
     }
   }
 
-  // Use Case-Insensitive check or exact match based on Firestore console input
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'ADMIN'
+  // Enhanced case-insensitive Admin role detection
+  const isAdmin = profile?.role?.toLowerCase() === 'admin'
   const currentNavItems = isAdmin ? adminNavItems : staffNavItems
 
   return (
@@ -73,7 +73,7 @@ export function SidebarNav() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
                 isActive 
-                  ? "bg-primary text-primary-foreground" 
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
                   : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
               )}
             >
