@@ -61,11 +61,12 @@ export default function DashboardPage() {
   // Auto-link logic: If profile is missing at the UID path, search by email
   useEffect(() => {
     const attemptAutoLink = async () => {
-      if (!db || !user || isProfileLoading || profile || isLinking) return
+      if (!db || !user || isProfileLoading || profile || isLinking || !user.email) return
 
       setIsLinking(true)
       try {
         // Search for a document where email matches the current user
+        // This query is now allowed by the updated security rules
         const q = query(collection(db, "userProfiles"), where("email", "==", user.email))
         const querySnapshot = await getDocs(q)
         
@@ -82,11 +83,12 @@ export default function DashboardPage() {
             })
             
             // Delete the old email-based or temporary ID record
+            // The updated security rules allow users to delete records matching their own email
             await deleteDoc(existingDoc.ref)
             
             toast({
               title: "Profile Synchronized",
-              description: "Your professional registry entry has been linked to your account.",
+              description: "Your professional registry entry has been successfully linked.",
             })
             window.location.reload()
           }

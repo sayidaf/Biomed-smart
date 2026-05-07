@@ -45,11 +45,14 @@ service cloud.firestore {
       
       // Allow listing profiles ONLY for Admins, 
       // OR for users searching for their own email (for Auto-Link protocol)
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 10 && request.query.filters.email == request.auth.token.email);
+      // Note: request.query.filters.email == [request.auth.token.email] is the correct syntax for v2 rules
+      allow list: if isAdmin() || (isSignedIn() && request.auth.token.email != null && request.query.filters.email == [request.auth.token.email]);
       
       allow create: if (isSignedIn() && request.resource.data.id == userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      
+      // Allow users to delete temporary records matching their email during the auto-link cleanup
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
     }
 
     match /departments/{departmentId} {
