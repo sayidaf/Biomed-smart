@@ -6,13 +6,11 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { 
   ShieldCheck, 
-  Lock, 
   Loader2, 
   ArrowRight,
   ChevronLeft,
   Eye,
   EyeOff,
-  Cpu,
   Activity,
   Zap,
   Microscope
@@ -80,33 +78,32 @@ export default function LandingPage() {
   )
 
   return (
-    <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background">
-      {/* Sophisticated background grid */}
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden bg-background py-12 md:py-0">
+      {/* Background grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(var(--primary),0.05),transparent)] z-0" />
       
-      <div className="relative z-10 w-full max-w-6xl px-6 flex flex-col items-center gap-12">
-        <div className="flex flex-col items-center gap-6 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40 border border-primary/20">
-            <ShieldCheck className="w-12 h-12 text-primary-foreground" />
+      <div className="relative z-10 w-full max-w-6xl px-4 md:px-6 flex flex-col items-center gap-8 md:gap-12">
+        <div className="flex flex-col items-center gap-4 md:gap-6 text-center">
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40 border border-primary/20">
+            <ShieldCheck className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
           </div>
-          <div className="space-y-4">
-            <h1 className="text-5xl md:text-7xl font-headline font-bold text-foreground tracking-tighter">
+          <div className="space-y-2 md:space-y-4">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline font-bold text-foreground tracking-tighter">
               BioMedLink <span className="text-primary">Core</span>
             </h1>
-            <p className="text-lg md:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base md:text-xl lg:text-2xl text-muted-foreground font-medium max-w-3xl mx-auto leading-relaxed px-4 md:px-0">
               Advancing Healthcare through <span className="text-foreground font-bold italic">Precision Engineering</span> and <span className="text-foreground font-bold italic">Absolute Reliability</span>.
             </p>
           </div>
         </div>
 
         {view === "hero" ? (
-          <div className="w-full flex flex-col items-center gap-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+          <div className="w-full flex flex-col items-center gap-8 md:gap-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 w-full max-w-5xl">
               {[
                 { icon: Zap, title: "Operational Excellence", desc: "Maximizing hardware uptime with intelligent predictive maintenance." },
                 { icon: Activity, title: "Diagnostic Precision", desc: "Real-time performance monitoring and ISO-compliant calibration." },
-                { icon: Microscope, title: "BME Intelligence", desc: "AI-driven troubleshooting for the next generation of clinical hardware." }
+                { icon: Microscope, title: "BME Intelligence", desc: "AI-driven troubleshooting for clinical hardware." }
               ].map((feature, i) => (
                 <div key={i} className="p-6 rounded-2xl bg-card border border-border shadow-sm flex flex-col items-center text-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
@@ -118,7 +115,7 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div className="w-full max-w-4xl mx-auto">
+            <div className="w-full max-w-4xl mx-auto hidden md:block">
               <Carousel className="w-full" opts={{ loop: true }}>
                 <CarouselContent>
                   {PlaceHolderImages.slice(0, 3).map((img) => (
@@ -145,30 +142,30 @@ export default function LandingPage() {
               </Carousel>
             </div>
 
-            <div className="flex flex-col items-center gap-6">
-              <Button size="lg" className="h-16 px-12 text-lg font-bold shadow-2xl shadow-primary/40 group" onClick={() => setView("auth")}>
+            <div className="flex flex-col items-center gap-6 w-full max-w-xs md:max-w-none">
+              <Button size="lg" className="w-full md:w-auto h-14 md:h-16 px-12 text-lg font-bold shadow-2xl shadow-primary/40 group" onClick={() => setView("auth")}>
                 Access Management Terminal
-                <ArrowRight className="ml-2 w-6 h-6 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="ml-2 w-5 h-5 md:w-6 md:h-6 transition-transform group-hover:translate-x-1" />
               </Button>
-              <p className="text-xs font-mono text-muted-foreground uppercase tracking-[0.2em]">Authorized Access Only • System Integrity v2.4</p>
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] text-center">Authorized Access Only • System Integrity v2.4</p>
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-md animate-in fade-in zoom-in duration-300">
-            <Card className="border-none shadow-2xl rounded-[2.5rem] bg-card/50 backdrop-blur-xl border border-border">
-              <CardContent className="p-12 space-y-8">
+          <div className="w-full max-w-md animate-in fade-in zoom-in duration-300 px-4 md:px-0">
+            <Card className="border-none shadow-2xl rounded-[1.5rem] md:rounded-[2.5rem] bg-card/50 backdrop-blur-xl border border-border overflow-hidden">
+              <CardContent className="p-8 md:p-12 space-y-6 md:space-y-8">
                 <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors">
                   <ChevronLeft className="w-4 h-4" />
                   Return to Overview
                 </button>
-                <div className="space-y-2">
-                  <h2 className="text-4xl font-headline font-bold tracking-tight">Terminal Login</h2>
-                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest flex items-center gap-2">
+                <div className="space-y-1 md:space-y-2">
+                  <h2 className="text-3xl md:text-4xl font-headline font-bold tracking-tight">Terminal Login</h2>
+                  <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     Secure Gateway: HQ-MAIN-BME
                   </p>
                 </div>
-                <form onSubmit={handleLogin} className="space-y-6">
+                <form onSubmit={handleLogin} className="space-y-5 md:space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-xs font-bold uppercase text-muted-foreground">Engineer Credentials</Label>
                     <Input id="email" type="email" placeholder="id@biomedlink.sys" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 bg-background/50" />
@@ -186,11 +183,9 @@ export default function LandingPage() {
                     {authLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Authorize Session"}
                   </Button>
                 </form>
-                <div className="pt-4 border-t border-border flex flex-col items-center gap-2">
-                   <p className="text-[10px] text-center text-muted-foreground max-w-xs uppercase leading-relaxed tracking-wider">
-                     By accessing this terminal, you agree to comply with medical equipment safety protocols and hospital data integrity policies.
-                   </p>
-                </div>
+                <p className="text-[10px] text-center text-muted-foreground uppercase leading-relaxed tracking-wider">
+                  By accessing this terminal, you agree to comply with medical equipment safety protocols.
+                </p>
               </CardContent>
             </Card>
           </div>

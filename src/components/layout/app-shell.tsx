@@ -19,7 +19,6 @@ import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
 import { doc } from "firebase/firestore"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { user } = useUser()
   const db = useFirestore()
 
@@ -32,14 +31,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background text-foreground font-body">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card">
+      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card fixed inset-y-0 left-0">
         <div className="p-6 flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <ShieldCheck className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="text-xl font-headline font-bold text-primary">BioMedLink</span>
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           <SidebarNav />
         </div>
         <div className="p-4 m-4 rounded-xl bg-secondary/50 border border-secondary shrink-0">
@@ -55,8 +54,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+      <div className="flex-1 flex flex-col min-w-0 md:pl-64">
+        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
           <div className="flex items-center gap-4 flex-1">
             <Sheet>
               <SheetTrigger asChild>
@@ -64,48 +63,50 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-64 flex flex-col">
+              <SheetContent side="left" className="p-0 w-72 flex flex-col">
                 <div className="p-6 flex items-center gap-2 border-b shrink-0">
                    <ShieldCheck className="w-6 h-6 text-primary" />
                    <span className="text-xl font-headline font-bold text-primary">BioMedLink</span>
                 </div>
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-2">
                   <SidebarNav />
                 </div>
               </SheetContent>
             </Sheet>
             
-            <div className="relative w-full max-w-md hidden sm:block">
+            <div className="relative w-full max-w-xs md:max-w-md hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="Search equipment by serial #..." 
+                placeholder="Search..." 
                 className="pl-9 h-9 bg-muted/30 border-none focus-visible:ring-1"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative hidden xs:inline-flex">
               <Bell className="w-5 h-5" />
               <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-destructive text-[10px]">
                 3
               </Badge>
             </Button>
-            <div className="flex items-center gap-3 pl-2 border-l border-border ml-2">
+            <div className="flex items-center gap-2 md:gap-3 pl-2 border-l border-border ml-1 md:ml-2">
               <div className="hidden lg:flex flex-col items-end">
-                <span className="text-sm font-semibold">{profile?.firstName || user?.email?.split('@')[0]} {profile?.lastName || ''}</span>
+                <span className="text-sm font-semibold truncate max-w-[150px]">
+                  {profile?.firstName || user?.email?.split('@')[0]}
+                </span>
                 <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                  {profile?.role || 'Initializing...'}
+                  {profile?.role || 'User'}
                 </span>
               </div>
-              <Button variant="ghost" size="icon" className="rounded-full bg-secondary">
-                <User className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="rounded-full bg-secondary w-8 h-8 md:w-10 md:h-10">
+                <User className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 max-w-[1600px] mx-auto w-full">
+        <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
           {children}
         </main>
       </div>

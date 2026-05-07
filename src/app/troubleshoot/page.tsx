@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
   BrainCircuit, 
-  Send, 
   Loader2, 
   CheckCircle2, 
   AlertTriangle,
@@ -23,7 +22,6 @@ import { aiTroubleshoot, type AITroubleshootingOutput } from "@/ai/flows/ai-trou
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function TroubleshootPage() {
   const db = useFirestore()
@@ -80,35 +78,35 @@ export default function TroubleshootPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
-              <BrainCircuit className="w-8 h-8 text-accent" />
-              AI Troubleshooting Assistant
+            <h1 className="text-2xl md:text-3xl font-headline font-bold text-primary flex items-center gap-3">
+              <BrainCircuit className="w-8 h-8 text-accent shrink-0" />
+              AI Assistant
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Smart diagnostic guidance powered by Genkit AI and RAG.
+            <p className="text-sm text-muted-foreground mt-1">
+              Smart diagnostic guidance powered by AI.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
             <History className="w-4 h-4" />
-            Previous Sessions
+            Sessions
           </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Input Side */}
           <div className="lg:col-span-5 space-y-6">
-            <Card className="border-none shadow-sm h-full">
-              <CardHeader>
+            <Card className="border-none shadow-sm">
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle className="text-lg">Device Diagnosis</CardTitle>
-                <CardDescription>Enter problem details for AI analysis</CardDescription>
+                <CardDescription>Enter problem details for analysis</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
                 <div className="space-y-2">
                   <Label>Equipment Unit</Label>
-                  <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2">
+                  <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                     {isEqLoading ? (
                       <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
                     ) : equipment && equipment.length > 0 ? (
@@ -120,14 +118,14 @@ export default function TroubleshootPage() {
                             selectedEqId === eq.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                             <Microscope className={`w-5 h-5 ${selectedEqId === eq.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                             <div className="flex flex-col">
-                               <span className="text-sm font-semibold">{eq.name}</span>
-                               <span className="text-[10px] text-muted-foreground font-mono">{eq.serialNumber}</span>
+                          <div className="flex items-center gap-3 min-w-0">
+                             <Microscope className={`w-4 h-4 shrink-0 ${selectedEqId === eq.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                             <div className="flex flex-col min-w-0">
+                               <span className="text-xs font-semibold truncate">{eq.name}</span>
+                               <span className="text-[10px] text-muted-foreground font-mono truncate">{eq.serialNumber}</span>
                              </div>
                           </div>
-                          {selectedEqId === eq.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                          {selectedEqId === eq.id && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
                         </div>
                       ))
                     ) : (
@@ -149,22 +147,22 @@ export default function TroubleshootPage() {
                 <div className="space-y-2">
                   <Label>Problem Description</Label>
                   <Textarea 
-                    placeholder="Describe the issue, symptoms, or what happened before the failure..." 
-                    className="min-h-[150px] bg-muted/20"
+                    placeholder="Describe symptoms..." 
+                    className="min-h-[120px] bg-muted/20"
                     value={problem}
                     onChange={(e) => setProblem(e.target.value)}
                   />
                 </div>
 
                 <Button 
-                  className="w-full h-11 shadow-lg shadow-primary/20 gap-2" 
+                  className="w-full h-12 shadow-lg shadow-primary/20 gap-2" 
                   disabled={isLoading || !problem || !selectedEqId}
                   onClick={handleTroubleshoot}
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Analyzing Hardware...
+                      Analyzing...
                     </>
                   ) : (
                     <>
@@ -181,18 +179,18 @@ export default function TroubleshootPage() {
           <div className="lg:col-span-7">
             {result ? (
               <div className="space-y-6">
-                <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-primary hover:bg-primary">AI DIAGNOSIS</Badge>
-                      <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Analysis Complete</span>
+                <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary overflow-hidden">
+                  <CardHeader className="p-4 md:p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Badge className="bg-primary hover:bg-primary text-[10px]">AI DIAGNOSIS</Badge>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Analysis Complete</span>
                     </div>
-                    <CardTitle className="text-2xl mt-2">{result.diagnosis}</CardTitle>
+                    <CardTitle className="text-xl md:text-2xl mt-2">{result.diagnosis}</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
                     <div className="flex flex-wrap gap-2">
                       {result.potentialCauses.map((cause, i) => (
-                        <Badge key={i} variant="secondary" className="bg-white/80">{cause}</Badge>
+                        <Badge key={i} variant="secondary" className="bg-white/80 text-[10px]">{cause}</Badge>
                       ))}
                     </div>
                   </CardContent>
@@ -200,14 +198,14 @@ export default function TroubleshootPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card className="border-none shadow-sm">
-                     <CardHeader className="pb-2">
+                     <CardHeader className="pb-2 p-4">
                       <CardTitle className="text-sm flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Recommended Actions
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                        Actions
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <ul className="text-sm space-y-2 text-muted-foreground list-disc pl-4">
+                    <CardContent className="p-4 pt-0">
+                      <ul className="text-xs space-y-2 text-muted-foreground list-disc pl-4">
                         {result.recommendedActions.map((action, i) => (
                           <li key={i}>{action}</li>
                         ))}
@@ -216,14 +214,14 @@ export default function TroubleshootPage() {
                   </Card>
 
                   <Card className="border-none shadow-sm bg-destructive/5">
-                     <CardHeader className="pb-2">
+                     <CardHeader className="pb-2 p-4">
                       <CardTitle className="text-sm flex items-center gap-2 text-destructive">
-                        <AlertTriangle className="w-4 h-4" />
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
                         Precautions
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <ul className="text-sm space-y-2 text-muted-foreground list-disc pl-4">
+                    <CardContent className="p-4 pt-0">
+                      <ul className="text-xs space-y-2 text-muted-foreground list-disc pl-4">
                         {result.warningsAndPrecautions?.map((warning, i) => (
                           <li key={i}>{warning}</li>
                         ))}
@@ -233,45 +231,45 @@ export default function TroubleshootPage() {
                 </div>
 
                 <Card className="border-none shadow-sm">
-                  <CardHeader>
+                  <CardHeader className="p-4 md:p-6">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <FileSearch className="w-5 h-5 text-accent" />
-                      Step-by-Step Resolution Guide
+                      <FileSearch className="w-5 h-5 text-accent shrink-0" />
+                      Resolution Steps
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
                     <div className="space-y-4">
                       {result.stepByStepGuidance.map((step, i) => (
                         <div key={i} className="flex gap-4">
                           <div className="w-6 h-6 shrink-0 rounded-full bg-secondary text-secondary-foreground text-xs font-bold flex items-center justify-center border border-primary/20">
                             {i + 1}
                           </div>
-                          <p className="text-sm">{step}</p>
+                          <p className="text-sm leading-relaxed">{step}</p>
                         </div>
                       ))}
                     </div>
                     {result.estimatedRepairTime && (
-                      <div className="mt-8 pt-4 border-t border-border flex items-center justify-between">
+                      <div className="mt-8 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                         <span className="text-sm font-semibold">Est. Time to Repair:</span>
-                        <Badge variant="outline" className="text-primary border-primary">{result.estimatedRepairTime}</Badge>
+                        <Badge variant="outline" className="text-primary border-primary text-[10px]">{result.estimatedRepairTime}</Badge>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                <div className="flex justify-end gap-3">
-                  <Button variant="outline">Save to Log</Button>
-                  <Button>Open Service Ticket</Button>
+                <div className="flex flex-col sm:flex-row justify-end gap-3">
+                  <Button variant="outline" className="w-full sm:w-auto">Save to Log</Button>
+                  <Button className="w-full sm:w-auto">Open Service Ticket</Button>
                 </div>
               </div>
             ) : (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-xl border border-dashed border-border">
-                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-                  <BrainCircuit className="w-10 h-10 text-muted-foreground opacity-40" />
+              <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-xl border border-dashed border-border">
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+                  <BrainCircuit className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground opacity-40" />
                 </div>
-                <h3 className="text-xl font-headline font-bold text-muted-foreground">Ready to Assist</h3>
+                <h3 className="text-lg md:text-xl font-headline font-bold text-muted-foreground">Ready to Assist</h3>
                 <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                  Submit a problem description on the left to generate context-aware troubleshooting steps and hardware diagnosis.
+                  Submit a problem description to generate diagnostic steps.
                 </p>
               </div>
             )}
