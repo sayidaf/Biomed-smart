@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -11,7 +12,9 @@ import {
   ArrowRight,
   LogIn,
   ChevronLeft,
-  UserPlus
+  UserPlus,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +43,7 @@ export default function LandingPage() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
   useEffect(() => {
@@ -214,13 +218,21 @@ export default function LandingPage() {
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input 
                         id="password" 
-                        type="password" 
+                        type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        className="pl-10 h-12 bg-muted/20 border-none focus-visible:ring-1"
+                        className="pl-10 pr-10 h-12 bg-muted/20 border-none focus-visible:ring-1"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                        aria-label={showPassword ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
                   <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20 rounded-xl" disabled={authLoading}>
@@ -242,7 +254,10 @@ export default function LandingPage() {
 
                 <div className="text-center">
                   <button 
-                    onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}
+                    onClick={() => {
+                      setAuthMode(authMode === "login" ? "signup" : "login")
+                      setShowPassword(false)
+                    }}
                     className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
                   >
                     {authMode === "login" 
