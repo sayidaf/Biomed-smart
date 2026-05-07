@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -17,7 +16,8 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
-  Lock
+  Lock,
+  Stethoscope
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
@@ -59,7 +59,6 @@ export default function UsersManagementPage() {
     email: "",
     firstName: "",
     lastName: "",
-    role: "Biomedical Engineer",
     password: "" 
   })
 
@@ -81,18 +80,19 @@ export default function UsersManagementPage() {
     const newUserId = Math.random().toString(36).substring(2, 15)
     const userRef = doc(db, "userProfiles", newUserId)
     
+    // Always default to Biomedical Engineer for staff management entries
     setDocumentNonBlocking(userRef, {
       id: newUserId,
       email: formData.email,
       firstName: formData.firstName,
       lastName: formData.lastName,
-      role: formData.role,
+      role: "Biomedical Engineer",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true })
 
     setIsDialogOpen(false)
-    setFormData({ email: "", firstName: "", lastName: "", role: "Biomedical Engineer", password: "" })
+    setFormData({ email: "", firstName: "", lastName: "", password: "" })
   }
 
   const handleDeleteUser = (userId: string) => {
@@ -118,7 +118,7 @@ export default function UsersManagementPage() {
           <AlertCircle className="w-12 h-12 text-destructive" />
           <h2 className="text-2xl font-headline font-bold">Unauthorized Access</h2>
           <p className="text-muted-foreground max-w-md">
-            Only Administrators can access the Staff Registry. (Detected Role: {profile?.role || 'None'})
+            Only Administrators can access the Staff Registry.
           </p>
           <Button onClick={() => router.push("/dashboard")}>Return to Dashboard</Button>
         </div>
@@ -135,21 +135,21 @@ export default function UsersManagementPage() {
               <Users className="w-8 h-8" />
               Staff Registry
             </h1>
-            <p className="text-muted-foreground mt-1">Initialize and monitor biomedical engineer profiles for the 2026 terminal.</p>
+            <p className="text-muted-foreground mt-1">Initialize Biomedical Engineer profiles for the terminal.</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="shadow-lg shadow-primary/20 h-11 px-6">
                 <UserPlus className="w-5 h-5 mr-2" />
-                Register New Engineer
+                Add New Engineer
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Staff Registry Entry</DialogTitle>
+                <DialogTitle>Engineer Registry Entry</DialogTitle>
                 <DialogDescription>
-                  Enter credentials to initialize a new engineer.
+                  Credentials will be initialized as a <strong>Biomedical Engineer</strong>.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4 py-4">
@@ -191,7 +191,7 @@ export default function UsersManagementPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Assigned Security PIN</Label>
+                  <Label htmlFor="password">Security PIN</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
@@ -205,21 +205,15 @@ export default function UsersManagementPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">System Role</Label>
-                  <select 
-                    id="role"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={formData.role}
-                    onChange={(e) => setFormData({...formData, role: e.target.value})}
-                  >
-                    <option>Biomedical Engineer</option>
-                    <option>Technician</option>
-                    <option>Admin</option>
-                  </select>
+                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-center gap-3">
+                  <Stethoscope className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="text-xs font-bold text-primary uppercase">Assigned Role</p>
+                    <p className="text-sm font-semibold">Biomedical Engineer</p>
+                  </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" className="w-full h-11 font-bold">Initialize Registry Entry</Button>
+                  <Button type="submit" className="w-full h-11 font-bold">Register Engineer</Button>
                 </DialogFooter>
               </form>
             </DialogContent>

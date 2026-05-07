@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -16,7 +15,9 @@ import {
   ShieldCheck,
   UserPlus,
   UserCheck,
-  Database
+  Database,
+  TrendingUp,
+  Award
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
@@ -57,8 +58,13 @@ export default function DashboardPage() {
   const isAdmin = roleString === 'admin'
   const isEngineer = roleString === 'biomedical engineer' || roleString === 'technician'
 
+  const allUsersQuery = useMemoFirebase(() => {
+    if (!db || !isAdmin) return null
+    return collection(db, "userProfiles")
+  }, [db, isAdmin])
+  const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(allUsersQuery)
+
   const equipmentQuery = useMemoFirebase(() => {
-    // Only fetch if authenticated as staff and NOT admin (admin gets staff view)
     if (!db || !profile || !isEngineer) return null
     return collection(db, "equipment")
   }, [db, profile, isEngineer])
@@ -66,6 +72,9 @@ export default function DashboardPage() {
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
   const faultyEquipment = equipment?.filter(eq => eq.status === 'FAULTY').slice(0, 3)
+
+  // Admin Analytics
+  const engineerCount = allUsers?.filter(u => u.role === 'Biomedical Engineer').length || 0
 
   if (isUserLoading || isProfileLoading) {
     return (
@@ -77,7 +86,6 @@ export default function DashboardPage() {
     )
   }
 
-  // Handle case where user is logged in but Firestore profile doesn't exist
   if (!profile) {
     return (
       <AppShell>
@@ -85,10 +93,9 @@ export default function DashboardPage() {
           <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
             <Database className="w-8 h-8 text-orange-600" />
           </div>
-          <h2 className="text-2xl font-bold">Profile Not Found in Database</h2>
+          <h2 className="text-2xl font-bold">Profile Not Found</h2>
           <p className="text-muted-foreground">
-            You are logged in, but your record in the <strong>userProfiles</strong> collection does not exist yet. 
-            This happens if you were created manually in Authentication instead of using the app's signup form.
+            Your profile record does not exist in the <strong>userProfiles</strong> collection. 
           </p>
           <div className="p-4 bg-muted rounded-lg text-left text-xs font-mono">
             <p>1. Go to Firebase Console {'->'} Firestore</p>
@@ -96,7 +103,7 @@ export default function DashboardPage() {
             <p>3. Add document with ID: <strong>{user?.uid}</strong></p>
             <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
           </div>
-          <Button onClick={() => window.location.reload()} variant="outline">Refresh Page after update</Button>
+          <Button onClick={() => window.location.reload()} variant="outline">Refresh Page</Button>
         </div>
       </AppShell>
     )
@@ -109,7 +116,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-3xl font-headline font-bold text-primary">
-                Welcome back, {profile?.firstName || user?.email?.split('@')[0]}
+                Welcome, {profile?.firstName || user?.email?.split('@')[0]}
               </h1>
               {isAdmin && (
                 <Badge variant="default" className="bg-primary hover:bg-primary gap-1 px-2 py-0.5">
@@ -119,8 +126,8 @@ export default function DashboardPage() {
               )}
             </div>
             <p className="text-muted-foreground">
-              {currentDate ? `Date: ${currentDate}. ` : ''}
-              Protocol BioMedLink-2026 is fully active.
+              {currentDate ? `Protocol Active: ${currentDate}. ` : ''}
+              System status: Secure.
             </p>
           </div>
           {isEngineer && (
@@ -137,56 +144,72 @@ export default function DashboardPage() {
 
         {isAdmin ? (
           <div className="space-y-6">
-            <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl flex items-center gap-2 text-primary">
-                    <Users className="w-6 h-6" />
-                    Administrative Control Center
-                  </CardTitle>
-                  <CardDescription className="text-base">
-                    Authorized hub for personnel registry management and facility security oversight.
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="flex gap-4 pt-4">
-                <Link href="/users">
-                  <Button size="lg" className="gap-2 px-8 shadow-xl shadow-primary/20">
-                    <UserPlus className="w-5 h-5" />
-                    Manage Staff Registry
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-none shadow-sm bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-accent" />
-                    Security Compliance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    All terminal interactions are logged under ISO-2026 security protocols. Use the Staff Registry to provision new accounts.
-                  </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Users className="w-8 h-8 text-primary" />
+                    <Badge variant="secondary" className="bg-primary/10 text-primary">Active Registry</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Total Engineers</p>
+                    <h3 className="text-4xl font-headline font-bold mt-1">
+                      {isAllUsersLoading ? <Loader2 className="w-6 h-6 animate-spin inline" /> : engineerCount}
+                    </h3>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="border-none shadow-sm bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                    <ShieldCheck className="w-5 h-5" />
-                    Network Integrity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Facility Node Node-01 is currently synchronized. System audit reports can be generated from the staff node.
-                  </p>
+
+              <Card className="border-none shadow-sm bg-accent/5 border-l-4 border-l-accent">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <TrendingUp className="w-8 h-8 text-accent" />
+                    <Badge variant="secondary" className="bg-accent/10 text-accent">Efficiency</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">System Performance</p>
+                    <h3 className="text-4xl font-headline font-bold mt-1">94%</h3>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm bg-orange-50 border-l-4 border-l-orange-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <Award className="w-8 h-8 text-orange-500" />
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-600">Compliance</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">SLA Status</p>
+                    <h3 className="text-4xl font-headline font-bold mt-1 text-orange-600">Stable</h3>
+                  </div>
                 </CardContent>
               </Card>
             </div>
+
+            <Card className="border-none shadow-sm overflow-hidden">
+              <CardHeader className="bg-card">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <UserCheck className="w-6 h-6 text-primary" />
+                      Personnel Control
+                    </CardTitle>
+                    <CardDescription>Monitor engineer activity and system access.</CardDescription>
+                  </div>
+                  <Link href="/users">
+                    <Button variant="outline" size="sm">Staff Registry</Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="p-8 text-center bg-muted/20">
+                   <p className="text-muted-foreground text-sm max-w-lg mx-auto">
+                     Performance metrics for individual engineers are aggregated from troubleshooting logs and maintenance resolution times.
+                   </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <>
