@@ -60,13 +60,17 @@ export default function UsersManagementPage() {
     firstName: "",
     lastName: "",
     role: "Biomedical Engineer",
-    password: "" // Registry reference only
+    password: "" 
   })
 
+  // Case-Insensitive Check for Admin query
+  const roleString = profile?.role?.toString().toLowerCase() || ''
+  const isAdmin = roleString === 'admin'
+
   const usersQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'Admin') return null
+    if (!db || !isAdmin) return null
     return collection(db, "userProfiles")
-  }, [db, profile?.role])
+  }, [db, isAdmin])
 
   const { data: users, isLoading: isUsersLoading } = useCollection(usersQuery)
 
@@ -107,14 +111,14 @@ export default function UsersManagementPage() {
     )
   }
 
-  if (profile?.role !== 'Admin') {
+  if (!isAdmin) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-destructive" />
           <h2 className="text-2xl font-headline font-bold">Unauthorized Access</h2>
           <p className="text-muted-foreground max-w-md">
-            Only Administrators can access the Staff Registry.
+            Only Administrators can access the Staff Registry. (Detected Role: {profile?.role || 'None'})
           </p>
           <Button onClick={() => router.push("/dashboard")}>Return to Dashboard</Button>
         </div>
@@ -200,7 +204,6 @@ export default function UsersManagementPage() {
                       required 
                     />
                   </div>
-                  <p className="text-[10px] text-muted-foreground italic">Note: Staff should use the 'Initialize account' link on login to set their permanent PIN.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">System Role</Label>
@@ -254,7 +257,7 @@ export default function UsersManagementPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
-                      <Badge variant={u.role === 'Admin' ? 'default' : 'secondary'} className="text-[10px] uppercase font-bold">
+                      <Badge variant={u.role?.toString().toLowerCase() === 'admin' ? 'default' : 'secondary'} className="text-[10px] uppercase font-bold">
                         {u.role}
                       </Badge>
                     </TableCell>

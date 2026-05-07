@@ -52,18 +52,19 @@ export default function DashboardPage() {
   }, [db, user])
   const { data: profile } = useDoc(profileRef)
 
+  // Robust Case-Insensitive Role Check
+  const roleString = profile?.role?.toString().toLowerCase() || ''
+  const isAdmin = roleString === 'admin'
+
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile || profile.role?.toLowerCase() === 'admin') return null
+    if (!db || !profile || isAdmin) return null
     return collection(db, "equipment")
-  }, [db, profile])
+  }, [db, profile, isAdmin])
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
   const faultyEquipment = equipment?.filter(eq => eq.status === 'FAULTY').slice(0, 3)
 
   if (isUserLoading) return null
-
-  // Standardized role check
-  const isAdmin = profile?.role?.toLowerCase() === 'admin'
 
   return (
     <AppShell>
