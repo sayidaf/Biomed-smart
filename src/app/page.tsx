@@ -12,17 +12,14 @@ import {
   ArrowRight,
   LogIn,
   ChevronLeft,
-  UserPlus,
   Eye,
   EyeOff
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useUser, useAuth, useFirestore } from "@/firebase"
-import { initiateEmailSignIn, initiateEmailSignUp, initiateAnonymousSignIn } from "@/firebase/non-blocking-login"
-import { doc, serverTimestamp } from "firebase/firestore"
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { useUser, useAuth } from "@/firebase"
+import { initiateEmailSignIn, initiateAnonymousSignIn } from "@/firebase/non-blocking-login"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -39,11 +36,9 @@ export default function LandingPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
   const auth = useAuth()
-  const db = useFirestore()
   const { toast } = useToast()
 
   const [view, setView] = useState<"hero" | "auth">("hero")
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -61,50 +56,22 @@ export default function LandingPage() {
     
     setAuthLoading(true)
     try {
-      if (authMode === "login") {
-        await initiateEmailSignIn(auth, email, password)
-      } else {
-        const userCredential = await initiateEmailSignUp(auth, email, password)
-        const newUser = userCredential.user
-        
-        // Create initial Firestore profile for the new user
-        if (db) {
-          const profileRef = doc(db, "userProfiles", newUser.uid)
-          setDocumentNonBlocking(profileRef, {
-            id: newUser.uid,
-            email: newUser.email,
-            firstName: email.split('@')[0],
-            lastName: "Staff",
-            role: "Biomedical Engineer",
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          }, { merge: true })
-        }
-
-        toast({
-          title: "Account Created",
-          description: "Welcome to BioMedLink. Your staff profile has been initialized.",
-        })
-      }
+      await initiateEmailSignIn(auth, email, password)
     } catch (error: any) {
       console.error("Auth error:", error)
       let message = "An unexpected error occurred. Please try again."
       
       if (error.code === 'auth/invalid-credential') {
         message = "The email or security PIN you entered is incorrect. Please check your credentials."
-      } else if (error.code === 'auth/email-already-in-use') {
-        message = "This email is already registered. Please login instead."
-      } else if (error.code === 'auth/weak-password') {
-        message = "The security PIN is too weak. Please use at least 6 characters."
       } else if (error.code === 'auth/user-not-found') {
-        message = "No account found with this email. Please register first."
+        message = "No account found with this email. Please contact your administrator."
       } else if (error.code === 'auth/wrong-password') {
         message = "Incorrect security PIN. Please try again."
       }
 
       toast({
         variant: "destructive",
-        title: authMode === "login" ? "Login Refused" : "Registration Failed",
+        title: "Login Refused",
         description: message,
       })
     } finally {
@@ -122,13 +89,10 @@ export default function LandingPage() {
 
   return (
     <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background">
-      {/* Dynamic Background Elements */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5 z-0" />
       <div className="absolute top-0 left-0 w-full h-1 bg-primary/20" />
       
-      {/* Main Container */}
       <div className="relative z-10 w-full max-w-5xl px-6 flex flex-col items-center gap-8 md:gap-12">
-        {/* Logo & Header */}
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/30">
             <ShieldCheck className="w-10 h-10 text-primary-foreground" />
@@ -143,7 +107,6 @@ export default function LandingPage() {
 
         {view === "hero" ? (
           <div className="w-full space-y-10 animate-in fade-in zoom-in-95 duration-700">
-            {/* Centered Carousel */}
             <div className="w-full max-w-4xl mx-auto px-12">
               <Carousel className="w-full" opts={{ loop: true }}>
                 <CarouselContent>
@@ -170,7 +133,6 @@ export default function LandingPage() {
               </Carousel>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex flex-col items-center gap-6">
               <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md justify-center">
                 <Button 
@@ -210,9 +172,7 @@ export default function LandingPage() {
                 </button>
 
                 <div className="space-y-1">
-                  <h2 className="text-3xl font-headline font-bold tracking-tight">
-                    {authMode === "login" ? "Staff Login" : "Staff Registration"}
-                  </h2>
+                  <h2 className="text-3xl font-headline font-bold tracking-tight">Staff Login</h2>
                   <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">BioMedLink Terminal v4.2</p>
                 </div>
 
@@ -233,9 +193,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Security PIN</Label>
-                    </div>
+                    <Label htmlFor="password">Security PIN</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input 
@@ -251,7 +209,6 @@ export default function LandingPage() {
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                        aria-label={showPassword ? "Hide PIN" : "Show PIN"}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -259,34 +216,13 @@ export default function LandingPage() {
                   </div>
                   <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20 rounded-xl" disabled={authLoading}>
                     {authLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : (
-                      authMode === "login" ? (
-                        <>
-                          <LogIn className="w-5 h-5 mr-2" />
-                          Enter Facility
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-5 h-5 mr-2" />
-                          Create Registry
-                        </>
-                      )
+                      <>
+                        <LogIn className="w-5 h-5 mr-2" />
+                        Enter Facility
+                      </>
                     )}
                   </Button>
                 </form>
-
-                <div className="text-center pt-2">
-                  <button 
-                    onClick={() => {
-                      setAuthMode(authMode === "login" ? "signup" : "login")
-                      setShowPassword(false)
-                    }}
-                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {authMode === "login" 
-                      ? "First time? Initialize new staff account" 
-                      : "Already have an account? Sign in here"}
-                  </button>
-                </div>
 
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[10px] leading-relaxed text-muted-foreground text-center">
@@ -299,7 +235,6 @@ export default function LandingPage() {
         )}
       </div>
 
-      {/* Decorative Blur Backgrounds */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-accent/10 rounded-full blur-[100px] pointer-events-none" />
     </div>

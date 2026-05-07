@@ -48,7 +48,7 @@ export function SidebarNav() {
     return doc(db, "userProfiles", user.uid)
   }, [db, user])
 
-  const { data: profile } = useDoc(userProfileRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef)
 
   const handleLogout = async () => {
     if (auth) {
@@ -57,13 +57,14 @@ export function SidebarNav() {
     }
   }
 
-  const isAdmin = profile?.role === 'Admin'
+  // Use Case-Insensitive check or exact match based on Firestore console input
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'ADMIN'
   const currentNavItems = isAdmin ? adminNavItems : staffNavItems
 
   return (
     <nav className="flex flex-col h-full gap-1 px-2 py-4">
       <div className="flex-1 flex flex-col gap-1 overflow-y-auto">
-        {currentNavItems.map((item) => {
+        {!isProfileLoading && currentNavItems.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link
