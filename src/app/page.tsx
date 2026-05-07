@@ -14,17 +14,17 @@ import {
   ChevronLeft,
   Eye,
   EyeOff,
+  UserPlus,
   Zap,
-  Globe,
-  Settings,
   Cpu,
-  BarChart
+  BarChart,
+  User
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useUser, useAuth } from "@/firebase"
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login"
+import { useUser, useAuth, useFirestore } from "@/firebase"
+import { initiateEmailSignIn, initiateEmailSignUp } from "@/firebase/non-blocking-login"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -36,16 +36,20 @@ import {
 } from "@/components/ui/carousel"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 
 export default function LandingPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
   const auth = useAuth()
+  const db = useFirestore()
   const { toast } = useToast()
 
-  const [view, setView] = useState<"hero" | "auth">("hero")
+  const [view, setView] = useState<"hero" | "auth" | "register">("hero")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
@@ -55,7 +59,7 @@ export default function LandingPage() {
     }
   }, [user, router])
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!auth || !email || !password) return
     
@@ -73,6 +77,41 @@ export default function LandingPage() {
         variant: "destructive",
         title: "Security Violation",
         description: message,
+      })
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!auth || !db || !email || !password || !firstName || !lastName) return
+    
+    setAuthLoading(true)
+    try {
+      const userCredential = await initiateEmailSignUp(auth, email, password)
+      const newUser = userCredential.user
+
+      // Create UserProfile in Firestore immediately
+      await setDoc(doc(db, "userProfiles", newUser.uid), {
+        id: newUser.uid,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        role: "Biomedical Engineer", // Default role, user can change to 'Admin' in console
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+
+      toast({
+        title: "Registry Initialized",
+        description: "Your staff profile has been created successfully.",
+      })
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: error.message || "Could not initialize account.",
       })
     } finally {
       setAuthLoading(false)
@@ -180,7 +219,7 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : view === "auth" ? (
           <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-12 duration-700">
             <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card/90 backdrop-blur-2xl">
               <div className="h-2 bg-primary w-full" />
@@ -198,7 +237,7 @@ export default function LandingPage() {
                   <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Node ID: HQ-MAIN-2026</p>
                 </div>
 
-                <form onSubmit={handleAuth} className="space-y-6">
+                <form onSubmit={handleLogin} className="space-y-6">
                   <div className="space-y-3">
                     <Label htmlFor="email" className="font-bold text-xs uppercase tracking-wider opacity-70">Engineer ID (Email)</Label>
                     <div className="relative">
@@ -246,11 +285,105 @@ export default function LandingPage() {
                   </Button>
                 </form>
 
-                <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
-                  <p className="text-[10px] leading-relaxed text-muted-foreground text-center font-medium opacity-80">
-                    Warning: Unauthorized access attempts are monitored and logged. This terminal is subject to ISO-2026 security audits.
-                  </p>
+                <div className="flex flex-col gap-4">
+                  <button 
+                    onClick={() => setView("register")}
+                    className="text-xs text-center font-bold text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Initialize new staff account
+                  </button>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-12 duration-700">
+            <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card/90 backdrop-blur-2xl">
+              <div className="h-2 bg-accent w-full" />
+              <CardContent className="p-10 space-y-6">
+                <button 
+                  onClick={() => setView("auth")}
+                  className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-all group"
+                >
+                  <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  Return to Login
+                </button>
+
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-headline font-bold tracking-tight">Staff Registry</h2>
+                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Initialization Protocol 2026</p>
+                </div>
+
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName" className="font-bold text-xs uppercase opacity-70">First Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input 
+                          id="firstName" 
+                          placeholder="Jane" 
+                          className="pl-10 h-12 bg-muted/40 border-none rounded-xl"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName" className="font-bold text-xs uppercase opacity-70">Last Name</Label>
+                      <Input 
+                        id="lastName" 
+                        placeholder="Doe" 
+                        className="h-12 bg-muted/40 border-none rounded-xl"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-email" className="font-bold text-xs uppercase opacity-70">Work Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        id="reg-email" 
+                        type="email" 
+                        placeholder="engineer@hospital.com" 
+                        className="pl-10 h-12 bg-muted/40 border-none rounded-xl"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-password" className="font-bold text-xs uppercase opacity-70">Security PIN</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        id="reg-password" 
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="pl-10 h-12 bg-muted/40 border-none rounded-xl"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full h-14 text-lg font-bold shadow-2xl shadow-accent/20 rounded-xl transition-all active:scale-95" disabled={authLoading}>
+                    {authLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                      <>
+                        <UserPlus className="w-5 h-5 mr-2" />
+                        Register Profile
+                      </>
+                    )}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </div>
