@@ -3,8 +3,15 @@
 
 import { useState } from "react"
 import { AppShell } from "@/components/layout/app-shell"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,7 +27,8 @@ import {
   Lock,
   Stethoscope,
   Eye,
-  EyeOff
+  EyeOff,
+  Info
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
@@ -35,14 +43,27 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function UsersManagementPage() {
   const db = useFirestore()
   const router = useRouter()
+  const { toast } = useToast()
   const { user: currentUser } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<string | null>(null)
   
   const currentUserProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
@@ -85,21 +106,31 @@ export default function UsersManagementPage() {
       updatedAt: serverTimestamp()
     }, { merge: true })
 
+    toast({
+      title: "Profile Registered",
+      description: "Note: You must also create this user in Firebase Console -> Auth tab for login to work.",
+    })
+
     setIsDialogOpen(false)
     setFormData({ email: "", firstName: "", lastName: "", password: "" })
     setShowPassword(false)
   }
 
-  const handleDeleteUser = (userId: string) => {
-    if (!db || userId === currentUser?.uid) return
-    const userRef = doc(db, "userProfiles", userId)
+  const confirmDelete = () => {
+    if (!db || !userToDelete) return
+    const userRef = doc(db, "userProfiles", userToDelete)
     deleteDocumentNonBlocking(userRef)
+    setUserToDelete(null)
+    toast({
+      title: "User Removed",
+      description: "The staff registry entry has been deleted.",
+    })
   }
 
   if (isProfileLoading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-full">
+        <div className="flex items-center justify-center h-[60vh]">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </AppShell>
@@ -109,7 +140,7 @@ export default function UsersManagementPage() {
   if (!isAdmin) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-destructive" />
           <h2 className="text-2xl font-headline font-bold">Unauthorized Access</h2>
           <p className="text-muted-foreground max-w-md">
@@ -130,7 +161,7 @@ export default function UsersManagementPage() {
               <Users className="w-8 h-8" />
               Staff Registry
             </h1>
-            <p className="text-muted-foreground mt-1">Initialize Biomedical Engineer profiles for the terminal.</p>
+            <p className="text-muted-foreground mt-1">Manage and initialize Biomedical Engineer profiles.</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -147,7 +178,13 @@ export default function UsersManagementPage() {
                   Credentials will be initialized as a <strong>Biomedical Engineer</strong>.
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleCreateUser} className="space-y-4 py-4">
+              <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 flex items-start gap-2 mb-2">
+                <Info className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+                <p className="text-[10px] text-orange-800 leading-tight">
+                  <strong>Protocol Note:</strong> After saving, manually add this email to the Firebase Console Authentication tab to enable login access.
+                </p>
+              </div>
+              <form onSubmit={handleCreateUser} className="space-y-4 py-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
@@ -186,13 +223,13 @@ export default function UsersManagementPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Security PIN</Label>
+                  <Label htmlFor="password">Initial Security PIN</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
                       id="password" 
                       type={showPassword ? "text" : "password"}
-                      className="pl-10"
+                      className="pl-10 pr-10"
                       placeholder="••••••••" 
                       value={formData.password}
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -201,7 +238,7 @@ export default function UsersManagementPage() {
                     <button 
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -215,7 +252,7 @@ export default function UsersManagementPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" className="w-full h-11 font-bold">Register Engineer</Button>
+                  <Button type="submit" className="w-full h-11 font-bold">Register Profile</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -269,7 +306,7 @@ export default function UsersManagementPage() {
                           variant="ghost" 
                           size="icon" 
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteUser(u.id)}
+                          onClick={() => setUserToDelete(u.id)}
                           disabled={u.id === currentUser?.uid}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -289,6 +326,23 @@ export default function UsersManagementPage() {
           </Table>
         </Card>
       </div>
+
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the engineer's profile from the staff registry. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirm Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   )
 }
