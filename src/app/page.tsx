@@ -19,8 +19,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useUser, useAuth } from "@/firebase"
+import { useUser, useAuth, useFirestore } from "@/firebase"
 import { initiateEmailSignIn, initiateEmailSignUp, initiateAnonymousSignIn } from "@/firebase/non-blocking-login"
+import { doc, serverTimestamp } from "firebase/firestore"
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -37,6 +39,7 @@ export default function LandingPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
   const auth = useAuth()
+  const db = useFirestore()
   const { toast } = useToast()
 
   const [view, setView] = useState<"hero" | "auth">("hero")
@@ -61,10 +64,26 @@ export default function LandingPage() {
       if (authMode === "login") {
         await initiateEmailSignIn(auth, email, password)
       } else {
-        await initiateEmailSignUp(auth, email, password)
+        const userCredential = await initiateEmailSignUp(auth, email, password)
+        const newUser = userCredential.user
+        
+        // Create initial Firestore profile for the new user
+        if (db) {
+          const profileRef = doc(db, "userProfiles", newUser.uid)
+          setDocumentNonBlocking(profileRef, {
+            id: newUser.uid,
+            email: newUser.email,
+            firstName: email.split('@')[0],
+            lastName: "Staff",
+            role: "Biomedical Engineer",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true })
+        }
+
         toast({
           title: "Account Created",
-          description: "Welcome to BioMedLink. You can now access the portal.",
+          description: "Welcome to BioMedLink. Your staff profile has been initialized.",
         })
       }
     } catch (error: any) {
@@ -72,16 +91,20 @@ export default function LandingPage() {
       let message = "An unexpected error occurred. Please try again."
       
       if (error.code === 'auth/invalid-credential') {
-        message = "Invalid email or security PIN. Please check your credentials."
+        message = "The email or security PIN you entered is incorrect. Please check your credentials."
       } else if (error.code === 'auth/email-already-in-use') {
         message = "This email is already registered. Please login instead."
       } else if (error.code === 'auth/weak-password') {
         message = "The security PIN is too weak. Please use at least 6 characters."
+      } else if (error.code === 'auth/user-not-found') {
+        message = "No account found with this email. Please register first."
+      } else if (error.code === 'auth/wrong-password') {
+        message = "Incorrect security PIN. Please try again."
       }
 
       toast({
         variant: "destructive",
-        title: authMode === "login" ? "Login Failed" : "Registration Failed",
+        title: authMode === "login" ? "Login Refused" : "Registration Failed",
         description: message,
       })
     } finally {
@@ -98,13 +121,13 @@ export default function LandingPage() {
   if (isUserLoading) return null
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-background">
+    <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background">
       {/* Dynamic Background Elements */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5 z-0" />
       <div className="absolute top-0 left-0 w-full h-1 bg-primary/20" />
       
       {/* Main Container */}
-      <div className="relative z-10 w-full max-w-5xl px-6 py-12 flex flex-col items-center gap-12">
+      <div className="relative z-10 w-full max-w-5xl px-6 flex flex-col items-center gap-8 md:gap-12">
         {/* Logo & Header */}
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/30">
@@ -114,12 +137,12 @@ export default function LandingPage() {
             <h1 className="text-4xl md:text-5xl font-headline font-bold text-foreground tracking-tight">
               BioMedLink <span className="text-primary">2026</span>
             </h1>
-            <p className="text-muted-foreground font-medium mt-2">Next-Gen Biomedical Inventory & AI Diagnostics</p>
+            <p className="text-muted-foreground font-medium mt-2 italic">Next-Gen Biomedical Inventory & AI Diagnostics</p>
           </div>
         </div>
 
         {view === "hero" ? (
-          <div className="w-full space-y-12 animate-in fade-in zoom-in-95 duration-700">
+          <div className="w-full space-y-10 animate-in fade-in zoom-in-95 duration-700">
             {/* Centered Carousel */}
             <div className="w-full max-w-4xl mx-auto px-12">
               <Carousel className="w-full" opts={{ loop: true }}>
@@ -190,7 +213,7 @@ export default function LandingPage() {
                   <h2 className="text-3xl font-headline font-bold tracking-tight">
                     {authMode === "login" ? "Staff Login" : "Staff Registration"}
                   </h2>
-                  <p className="text-sm text-muted-foreground italic">BioMedLink Secure Terminal v4.2</p>
+                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">BioMedLink Terminal v4.2</p>
                 </div>
 
                 <form onSubmit={handleAuth} className="space-y-4">
@@ -212,7 +235,6 @@ export default function LandingPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Security PIN</Label>
-                      {authMode === "login" && <a href="#" className="text-xs text-primary font-bold hover:underline">Forgot?</a>}
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -245,14 +267,14 @@ export default function LandingPage() {
                       ) : (
                         <>
                           <UserPlus className="w-5 h-5 mr-2" />
-                          Create Account
+                          Create Registry
                         </>
                       )
                     )}
                   </Button>
                 </form>
 
-                <div className="text-center">
+                <div className="text-center pt-2">
                   <button 
                     onClick={() => {
                       setAuthMode(authMode === "login" ? "signup" : "login")
@@ -261,14 +283,14 @@ export default function LandingPage() {
                     className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
                   >
                     {authMode === "login" 
-                      ? "Need to create a new staff account? Register" 
-                      : "Already have an account? Login"}
+                      ? "First time? Initialize new staff account" 
+                      : "Already have an account? Sign in here"}
                   </button>
                 </div>
 
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[10px] leading-relaxed text-muted-foreground text-center">
-                    © 2026 BioMedLink Systems. Certified Medical Compliance. All rights reserved.
+                    © 2026 BioMedLink Systems. Certified Medical Compliance v4.2.0. All rights reserved.
                   </p>
                 </div>
               </CardContent>
