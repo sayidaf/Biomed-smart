@@ -1,0 +1,157 @@
+
+"use client"
+
+import { AppShell } from "@/components/layout/app-shell"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { 
+  Search, 
+  Filter, 
+  Plus, 
+  Download, 
+  MoreHorizontal,
+  Monitor,
+  Calendar,
+  Activity,
+  ChevronRight,
+  Printer
+} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { equipment as mockEquipment, departments } from "@/lib/mock-data"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+export default function EquipmentPage() {
+  return (
+    <AppShell>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-headline font-bold text-primary">Equipment Inventory</h1>
+            <p className="text-muted-foreground mt-1">Manage and track hospital biomedical assets across all departments.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+             <Button variant="outline" size="sm">
+              <Printer className="w-4 h-4 mr-2" />
+              QR Labels
+            </Button>
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <Button size="sm" className="shadow-lg shadow-primary/20">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Equipment
+            </Button>
+          </div>
+        </div>
+
+        <Card className="border-none shadow-sm overflow-hidden">
+          <CardContent className="p-0">
+            <div className="p-4 border-b border-border bg-muted/10 flex flex-col md:flex-row gap-4 items-center">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Search by name, serial number, model or manufacturer..." className="pl-9 bg-background h-10" />
+              </div>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button variant="outline" className="gap-2 shrink-0">
+                  <Filter className="w-4 h-4" />
+                  Filter
+                </Button>
+                <select className="flex h-10 w-full md:w-40 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option>All Departments</option>
+                  {departments.map(d => <option key={d.id}>{d.name}</option>)}
+                </select>
+                <select className="flex h-10 w-full md:w-36 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option>Any Status</option>
+                  <option>Operational</option>
+                  <option>Faulty</option>
+                  <option>Maintenance</option>
+                </select>
+              </div>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[300px]">Equipment Name</TableHead>
+                  <TableHead>Serial Number</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Next Service</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockEquipment.map((eq) => (
+                  <TableRow key={eq.id} className="group cursor-pointer">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                          <Monitor className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{eq.manufacturer} • {eq.modelNumber}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{eq.serialNumber}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-medium text-[11px]">
+                        {departments.find(d => d.id === eq.departmentId)?.code}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          eq.status === 'OPERATIONAL' ? 'bg-green-500' :
+                          eq.status === 'FAULTY' ? 'bg-destructive animate-pulse' :
+                          'bg-orange-400'
+                        }`} />
+                        <span className="text-xs font-medium">{eq.status}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="w-3 h-3" />
+                        {eq.nextServiceDate}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Activity className="w-4 h-4 text-accent" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="p-4 border-t border-border bg-muted/5 flex items-center justify-between">
+               <span className="text-xs text-muted-foreground">Showing 3 of 1,284 assets</span>
+               <div className="flex items-center gap-1">
+                 <Button variant="outline" size="sm" disabled>Previous</Button>
+                 <Button variant="outline" size="sm">Next</Button>
+               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AppShell>
+  )
+}

@@ -1,0 +1,35 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "mri-scanner",
+      "description": "A modern MRI scanner in a hospital radiology department.",
+      "imageUrl": "https://picsum.photos/seed/mri/800/600",
+      "imageHint": "mri scanner"
+    },
+    {
+      "id": "ventilator",
+      "description": "Hospital ICU ventilator machine.",
+      "imageUrl": "https://picsum.photos/seed/ventilator/800/600",
+      "imageHint": "medical ventilator"
+    },
+    {
+      "id": "patient-monitor",
+      "description": "Advanced patient vital signs monitor.",
+      "imageUrl": "https://picsum.photos/seed/monitor/800/600",
+      "imageHint": "patient monitor"
+    },
+    {
+      "id": "ultrasound",
+      "description": "Portable ultrasound machine for diagnostics.",
+      "imageUrl": "https://picsum.photos/seed/ultrasound/800/600",
+      "imageHint": "ultrasound machine"
+    },
+    {
+      "id": "hospital-hallway",
+      "description": "Clean modern hospital hallway.",
+      "imageUrl": "https://picsum.photos/seed/hospital/1200/400",
+      "imageHint": "hospital hallway"
+    }
+  ]
+}
