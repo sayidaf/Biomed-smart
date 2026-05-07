@@ -68,7 +68,7 @@ export default function LandingPage() {
       await initiateEmailSignIn(auth, email, password)
     } catch (error: any) {
       let message = "System access denied. Please verify credentials."
-      if (error.code === 'auth/invalid-credential') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         message = "Authentication failed. Invalid work email or security PIN."
       } else if (error.code === 'auth/user-not-found') {
         message = "No registry entry found for this email address."
@@ -93,20 +93,22 @@ export default function LandingPage() {
       const newUser = userCredential.user
 
       // Create UserProfile in Firestore immediately
+      // This is the critical part that populates your database
       await setDoc(doc(db, "userProfiles", newUser.uid), {
         id: newUser.uid,
         email: email,
         firstName: firstName,
         lastName: lastName,
-        role: "Biomedical Engineer", // Default role, user can change to 'Admin' in console
+        role: "Biomedical Engineer", // Default role
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       })
 
       toast({
         title: "Registry Initialized",
-        description: "Your staff profile has been created successfully.",
+        description: "Your staff profile has been created in the database.",
       })
+      router.push("/dashboard")
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -122,266 +124,129 @@ export default function LandingPage() {
 
   return (
     <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background">
-      {/* Cinematic Background Elements */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(var(--primary),0.05),transparent)] z-0" />
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       
       <div className="relative z-10 w-full max-w-6xl px-6 flex flex-col items-center gap-12">
         <div className="flex flex-col items-center gap-6 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40 transform transition-transform hover:rotate-6">
+          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-2xl shadow-primary/40">
             <ShieldCheck className="w-12 h-12 text-primary-foreground" />
           </div>
           <div className="space-y-2">
             <h1 className="text-5xl md:text-6xl font-headline font-bold text-foreground tracking-tighter">
               BioMedLink <span className="text-primary">2026</span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground font-medium max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
               Precision Engineering. Absolute Reliability. 
-              The Unified Ecosystem for Next-Generation Medical Asset Management.
             </p>
           </div>
         </div>
 
         {view === "hero" ? (
-          <div className="w-full space-y-12 animate-in fade-in zoom-in-95 duration-1000">
-            <div className="w-full max-w-5xl mx-auto px-4 md:px-12">
+          <div className="w-full flex flex-col items-center gap-12">
+            <div className="w-full max-w-4xl mx-auto">
               <Carousel className="w-full" opts={{ loop: true }}>
                 <CarouselContent>
-                  {PlaceHolderImages.map((img) => (
+                  {PlaceHolderImages.slice(0, 3).map((img) => (
                     <CarouselItem key={img.id}>
-                      <div className="relative aspect-[21/8] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/20">
+                      <div className="relative aspect-[21/9] rounded-[2rem] overflow-hidden border border-border">
                         <Image 
                           src={img.imageUrl} 
                           alt={img.description} 
                           fill 
-                          className="object-cover brightness-90"
+                          className="object-cover"
                           priority
                           data-ai-hint={img.imageHint}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-10">
-                          <div className="flex items-center gap-3 mb-4">
-                            <Badge className="bg-primary/90 hover:bg-primary font-bold px-3 py-1">SYSTEM CERTIFIED</Badge>
-                            <span className="text-white/60 text-xs font-mono uppercase tracking-widest">ISO 13485 Compliance</span>
-                          </div>
-                          <h2 className="text-2xl md:text-3xl font-headline font-bold text-white drop-shadow-lg max-w-2xl">{img.description}</h2>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
+                          <h2 className="text-2xl font-bold text-white">{img.description}</h2>
                         </div>
                       </div>
                     </CarouselItem>
                   ))}
                 </CarouselContent>
-                <CarouselPrevious className="hidden md:flex -left-16 h-14 w-14 bg-background/80 backdrop-blur-md border-none shadow-xl" />
-                <CarouselNext className="hidden md:flex -right-16 h-14 w-14 bg-background/80 backdrop-blur-md border-none shadow-xl" />
               </Carousel>
             </div>
 
-            <div className="flex flex-col items-center gap-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-4xl text-center mb-4">
-                <div className="space-y-2 group">
-                  <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/10 transition-colors">
-                    <Cpu className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-bold text-lg">Predictive Telemetry</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">AI-driven insights to mitigate hardware failures before they impact patient care.</p>
-                </div>
-                <div className="space-y-2 group">
-                   <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/10 transition-colors">
-                    <BarChart className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-bold text-lg">Integrated Workflow</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">Consolidated maintenance logs, inventory tracking, and real-time fault reporting.</p>
-                </div>
-                <div className="space-y-2 group">
-                   <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/10 transition-colors">
-                    <ShieldCheck className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-bold text-lg">Audit Ready</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">Automated ISO-compliant reporting for facility nodes and equipment safety standards.</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-6 w-full max-w-sm justify-center">
-                <Button 
-                  size="lg" 
-                  className="h-16 px-10 text-xl font-bold group shadow-2xl shadow-primary/30 rounded-2xl flex-1 transition-all hover:-translate-y-1 active:scale-95"
-                  onClick={() => setView("auth")}
-                >
-                  Enter Facility Terminal
-                  <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </div>
-              
-              <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] opacity-50">
-                <span>Certified v4.5.0</span>
-                <span className="w-1 h-1 bg-muted-foreground rounded-full" />
-                <span>256-bit Encrypted</span>
-                <span className="w-1 h-1 bg-muted-foreground rounded-full" />
-                <span>Personnel Only</span>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button size="lg" className="h-14 px-8 font-bold" onClick={() => setView("auth")}>
+                Access Terminal
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
             </div>
+            
+            <button 
+              onClick={() => setView("register")}
+              className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors"
+            >
+              Initialize new staff account (Register)
+            </button>
           </div>
         ) : view === "auth" ? (
-          <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-12 duration-700">
-            <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card/90 backdrop-blur-2xl">
-              <div className="h-2 bg-primary w-full" />
+          <div className="w-full max-w-md">
+            <Card className="border-none shadow-2xl rounded-[2rem]">
               <CardContent className="p-10 space-y-8">
-                <button 
-                  onClick={() => setView("hero")}
-                  className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-all group"
-                >
-                  <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                  System Overview
+                <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary">
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
                 </button>
-
                 <div className="space-y-1">
-                  <h2 className="text-3xl font-headline font-bold tracking-tight">Terminal Login</h2>
+                  <h2 className="text-3xl font-headline font-bold">Terminal Login</h2>
                   <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Node ID: HQ-MAIN-2026</p>
                 </div>
-
                 <form onSubmit={handleLogin} className="space-y-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="email" className="font-bold text-xs uppercase tracking-wider opacity-70">Engineer ID (Email)</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        placeholder="engineer@hospital.com" 
-                        className="pl-12 h-14 bg-muted/40 border-none focus-visible:ring-2 focus-visible:ring-primary/50 text-base rounded-xl"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Engineer ID (Email)</Label>
+                    <Input id="email" type="email" placeholder="engineer@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
-                  <div className="space-y-3">
-                    <Label htmlFor="password" className="font-bold text-xs uppercase tracking-wider opacity-70">Security PIN</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Security PIN</Label>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input 
-                        id="password" 
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        className="pl-12 pr-12 h-14 bg-muted/40 border-none focus-visible:ring-2 focus-visible:ring-primary/50 text-base rounded-xl"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full h-14 text-lg font-bold shadow-2xl shadow-primary/20 rounded-xl transition-all active:scale-95" disabled={authLoading}>
-                    {authLoading ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : (
-                      <>
-                        <LogIn className="w-5 h-5 mr-2" />
-                        Authorize Session
-                      </>
-                    )}
+                  <Button type="submit" className="w-full h-12 font-bold" disabled={authLoading}>
+                    {authLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Authorize Session"}
                   </Button>
                 </form>
-
-                <div className="flex flex-col gap-4">
-                  <button 
-                    onClick={() => setView("register")}
-                    className="text-xs text-center font-bold text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Initialize new staff account
-                  </button>
-                </div>
               </CardContent>
             </Card>
           </div>
         ) : (
-          <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-12 duration-700">
-            <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-card/90 backdrop-blur-2xl">
-              <div className="h-2 bg-accent w-full" />
+          <div className="w-full max-w-md">
+            <Card className="border-none shadow-xl rounded-[2rem]">
               <CardContent className="p-10 space-y-6">
-                <button 
-                  onClick={() => setView("auth")}
-                  className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-all group"
-                >
-                  <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                  Return to Login
+                <button onClick={() => setView("hero")} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary">
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
                 </button>
-
                 <div className="space-y-1">
-                  <h2 className="text-3xl font-headline font-bold tracking-tight">Staff Registry</h2>
-                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Initialization Protocol 2026</p>
+                  <h2 className="text-3xl font-headline font-bold">Staff Registry</h2>
+                  <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Create Profile in Firestore</p>
                 </div>
-
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName" className="font-bold text-xs uppercase opacity-70">First Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          id="firstName" 
-                          placeholder="Jane" 
-                          className="pl-10 h-12 bg-muted/40 border-none rounded-xl"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          required
-                        />
-                      </div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input id="firstName" placeholder="Jane" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName" className="font-bold text-xs uppercase opacity-70">Last Name</Label>
-                      <Input 
-                        id="lastName" 
-                        placeholder="Doe" 
-                        className="h-12 bg-muted/40 border-none rounded-xl"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        required
-                      />
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input id="lastName" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
                     </div>
                   </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="reg-email" className="font-bold text-xs uppercase opacity-70">Work Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input 
-                        id="reg-email" 
-                        type="email" 
-                        placeholder="engineer@hospital.com" 
-                        className="pl-10 h-12 bg-muted/40 border-none rounded-xl"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="reg-email">Work Email</Label>
+                    <Input id="reg-email" type="email" placeholder="engineer@hospital.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="reg-password" className="font-bold text-xs uppercase opacity-70">Security PIN</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input 
-                        id="reg-password" 
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        className="pl-10 h-12 bg-muted/40 border-none rounded-xl"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="reg-password">Security PIN (Password)</Label>
+                    <Input id="reg-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
                   </div>
-
-                  <Button type="submit" className="w-full h-14 text-lg font-bold shadow-2xl shadow-accent/20 rounded-xl transition-all active:scale-95" disabled={authLoading}>
-                    {authLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
-                      <>
-                        <UserPlus className="w-5 h-5 mr-2" />
-                        Register Profile
-                      </>
-                    )}
+                  <Button type="submit" className="w-full h-12 font-bold" disabled={authLoading}>
+                    {authLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Register & Create Profile"}
                   </Button>
                 </form>
               </CardContent>
@@ -389,9 +254,6 @@ export default function LandingPage() {
           </div>
         )}
       </div>
-
-      <div className="absolute top-1/4 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-1/4 -right-40 w-96 h-96 bg-accent/10 rounded-full blur-[120px] pointer-events-none animate-pulse" />
     </div>
   )
 }

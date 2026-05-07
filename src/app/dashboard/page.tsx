@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   UserPlus,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Database
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
@@ -50,7 +51,8 @@ export default function DashboardPage() {
     if (!db || !user) return null
     return doc(db, "userProfiles", user.uid)
   }, [db, user])
-  const { data: profile } = useDoc(profileRef)
+  
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
   // Robust Case-Insensitive Role Check
   const roleString = profile?.role?.toString().toLowerCase() || ''
@@ -64,7 +66,40 @@ export default function DashboardPage() {
 
   const faultyEquipment = equipment?.filter(eq => eq.status === 'FAULTY').slice(0, 3)
 
-  if (isUserLoading) return null
+  if (isUserLoading || isProfileLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center h-full py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    )
+  }
+
+  // Handle case where user is logged in but Firestore profile doesn't exist
+  if (!profile) {
+    return (
+      <AppShell>
+        <div className="max-w-md mx-auto py-20 text-center space-y-6">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+            <Database className="w-8 h-8 text-orange-600" />
+          </div>
+          <h2 className="text-2xl font-bold">Profile Not Found in Database</h2>
+          <p className="text-muted-foreground">
+            You are logged in, but your record in the <strong>userProfiles</strong> collection does not exist yet. 
+            This happens if you were created manually in Authentication instead of using the app's signup form.
+          </p>
+          <div className="p-4 bg-muted rounded-lg text-left text-xs font-mono">
+            <p>1. Go to Firebase Console -> Firestore</p>
+            <p>2. Create collection: <strong>userProfiles</strong></p>
+            <p>3. Add document with ID: <strong>{user?.uid}</strong></p>
+            <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
+          </div>
+          <Button onClick={() => window.location.reload()} variant="outline">Refresh Page after update</Button>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>
@@ -89,10 +124,6 @@ export default function DashboardPage() {
           </div>
           {!isAdmin && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
               <Link href="/equipment">
                 <Button size="sm" className="shadow-lg shadow-primary/20">
                   <Plus className="w-4 h-4 mr-2" />
@@ -137,7 +168,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    All terminal interactions are logged under ISO-2026 security protocols. Use the Staff Registry to provision new accounts with secure PINs.
+                    All terminal interactions are logged under ISO-2026 security protocols. Use the Staff Registry to provision new accounts.
                   </p>
                 </CardContent>
               </Card>
@@ -150,7 +181,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Facility Node Node-01 is currently synchronized. System audit reports can be generated from the Reports module in the staff node.
+                    Facility Node Node-01 is currently synchronized. System audit reports can be generated from the staff node.
                   </p>
                 </CardContent>
               </Card>
@@ -183,7 +214,6 @@ export default function DashboardPage() {
                               <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</h4>
                               <span className="text-[10px] text-muted-foreground uppercase font-bold">URGENT</span>
                             </div>
-                            <p className="text-xs text-muted-foreground mb-2">Technical diagnosis required for this unit.</p>
                             <Badge variant="secondary" className="text-[10px] font-mono">{eq.serialNumber}</Badge>
                           </div>
                         </div>
