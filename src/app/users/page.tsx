@@ -28,11 +28,12 @@ import {
   Stethoscope,
   Eye,
   EyeOff,
-  Info
+  Info,
+  Edit2
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
-import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { Badge } from "@/components/ui/badge"
 import { 
   Dialog, 
@@ -61,9 +62,14 @@ export default function UsersManagementPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { user: currentUser } = useUser()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  
+  // Dialog States
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
+  const [editingUser, setEditingUser] = useState<any | null>(null)
+  
+  const [showPassword, setShowPassword] = useState(false)
   
   const currentUserProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
@@ -72,11 +78,17 @@ export default function UsersManagementPage() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc(currentUserProfileRef)
 
-  const [formData, setFormData] = useState({
+  const [createData, setCreateData] = useState({
     email: "",
     firstName: "",
     lastName: "",
     password: "" 
+  })
+
+  const [editData, setEditData] = useState({
+    firstName: "",
+    lastName: "",
+    email: ""
   })
 
   const roleString = profile?.role?.toString().toLowerCase() || ''
@@ -98,9 +110,9 @@ export default function UsersManagementPage() {
     
     setDocumentNonBlocking(userRef, {
       id: newUserId,
-      email: formData.email,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
+      email: createData.email,
+      firstName: createData.firstName,
+      lastName: createData.lastName,
       role: "Biomedical Engineer",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -108,12 +120,44 @@ export default function UsersManagementPage() {
 
     toast({
       title: "Profile Registered",
-      description: "Note: You must also create this user in Firebase Console -> Auth tab for login to work.",
+      description: "Remember to create this user manually in Firebase Console -> Auth tab.",
     })
 
-    setIsDialogOpen(false)
-    setFormData({ email: "", firstName: "", lastName: "", password: "" })
+    setIsCreateOpen(false)
+    setCreateData({ email: "", firstName: "", lastName: "", password: "" })
     setShowPassword(false)
+  }
+
+  const handleEditClick = (user: any) => {
+    setEditingUser(user)
+    setEditData({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || ""
+    })
+    setIsEditOpen(true)
+  }
+
+  const handleUpdateUser = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!db || !editingUser) return
+
+    const userRef = doc(db, "userProfiles", editingUser.id)
+    
+    updateDocumentNonBlocking(userRef, {
+      firstName: editData.firstName,
+      lastName: editData.lastName,
+      email: editData.email,
+      updatedAt: serverTimestamp()
+    })
+
+    toast({
+      title: "Profile Updated",
+      description: "Changes saved. Ensure email matches the Firebase Auth record.",
+    })
+
+    setIsEditOpen(false)
+    setEditingUser(null)
   }
 
   const confirmDelete = () => {
@@ -161,10 +205,10 @@ export default function UsersManagementPage() {
               <Users className="w-8 h-8" />
               Staff Registry
             </h1>
-            <p className="text-muted-foreground mt-1">Manage and initialize Biomedical Engineer profiles.</p>
+            <p className="text-muted-foreground mt-1">Manage and provision Biomedical Engineer profiles.</p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="shadow-lg shadow-primary/20 h-11 px-6">
                 <UserPlus className="w-5 h-5 mr-2" />
@@ -175,13 +219,13 @@ export default function UsersManagementPage() {
               <DialogHeader>
                 <DialogTitle>Engineer Registry Entry</DialogTitle>
                 <DialogDescription>
-                  Credentials will be initialized as a <strong>Biomedical Engineer</strong>.
+                  Register a new <strong>Biomedical Engineer</strong>.
                 </DialogDescription>
               </DialogHeader>
               <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 flex items-start gap-2 mb-2">
                 <Info className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
                 <p className="text-[10px] text-orange-800 leading-tight">
-                  <strong>Protocol Note:</strong> After saving, manually add this email to the Firebase Console Authentication tab to enable login access.
+                  <strong>Protocol Note:</strong> After saving, manually create this user in the <strong>Firebase Console Auth Tab</strong> using the same email and PIN.
                 </p>
               </div>
               <form onSubmit={handleCreateUser} className="space-y-4 py-2">
@@ -191,8 +235,8 @@ export default function UsersManagementPage() {
                     <Input 
                       id="firstName" 
                       placeholder="Jane" 
-                      value={formData.firstName}
-                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                      value={createData.firstName}
+                      onChange={(e) => setCreateData({...createData, firstName: e.target.value})}
                       required 
                     />
                   </div>
@@ -201,8 +245,8 @@ export default function UsersManagementPage() {
                     <Input 
                       id="lastName" 
                       placeholder="Doe" 
-                      value={formData.lastName}
-                      onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                      value={createData.lastName}
+                      onChange={(e) => setCreateData({...createData, lastName: e.target.value})}
                       required 
                     />
                   </div>
@@ -216,8 +260,8 @@ export default function UsersManagementPage() {
                       type="email" 
                       className="pl-10"
                       placeholder="name@hospital.com" 
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      value={createData.email}
+                      onChange={(e) => setCreateData({...createData, email: e.target.value})}
                       required 
                     />
                   </div>
@@ -231,8 +275,8 @@ export default function UsersManagementPage() {
                       type={showPassword ? "text" : "password"}
                       className="pl-10 pr-10"
                       placeholder="••••••••" 
-                      value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      value={createData.password}
+                      onChange={(e) => setCreateData({...createData, password: e.target.value})}
                       required 
                     />
                     <button 
@@ -247,7 +291,7 @@ export default function UsersManagementPage() {
                 <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-center gap-3">
                   <Stethoscope className="w-5 h-5 text-primary" />
                   <div>
-                    <p className="text-xs font-bold text-primary uppercase">Assigned Role</p>
+                    <p className="text-xs font-bold text-primary uppercase">Default Role</p>
                     <p className="text-sm font-semibold">Biomedical Engineer</p>
                   </div>
                 </div>
@@ -259,80 +303,148 @@ export default function UsersManagementPage() {
           </Dialog>
         </div>
 
+        {/* Edit User Dialog */}
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Staff Profile</DialogTitle>
+              <DialogDescription>
+                Update the professional registry details for this engineer.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-start gap-2 mb-2">
+              <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+              <p className="text-[10px] text-blue-800 leading-tight">
+                <strong>Important:</strong> If you change the email, ensure the corresponding <strong>Auth</strong> record is updated in the Firebase Console.
+              </p>
+            </div>
+            <form onSubmit={handleUpdateUser} className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editFirstName">First Name</Label>
+                  <Input 
+                    id="editFirstName" 
+                    value={editData.firstName}
+                    onChange={(e) => setEditData({...editData, firstName: e.target.value})}
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editLastName">Last Name</Label>
+                  <Input 
+                    id="editLastName" 
+                    value={editData.lastName}
+                    onChange={(e) => setEditData({...editData, lastName: e.target.value})}
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editEmail">Work Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    id="editEmail" 
+                    type="email" 
+                    className="pl-10"
+                    value={editData.email}
+                    onChange={(e) => setEditData({...editData, email: e.target.value})}
+                    required 
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" className="w-full h-11 font-bold">Confirm Updates</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <Card className="border-none shadow-sm overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>Engineer</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isUsersLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead>Engineer</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : users && users.length > 0 ? (
-                users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                          <User className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="font-semibold">{u.firstName} {u.lastName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={u.role?.toString().toLowerCase() === 'admin' ? 'default' : 'secondary'} className="text-[10px] uppercase font-bold">
-                        {u.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Registry Active
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setUserToDelete(u.id)}
-                          disabled={u.id === currentUser?.uid}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {isUsersLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                    No engineers found in the registry.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ) : users && users.length > 0 ? (
+                  users.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                            <User className="w-4 h-4 text-primary" />
+                          </div>
+                          <span className="font-semibold">{u.firstName} {u.lastName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={u.role?.toString().toLowerCase() === 'admin' ? 'default' : 'secondary'} className="text-[10px] uppercase font-bold">
+                          {u.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Registry Active
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => handleEditClick(u)}
+                            disabled={u.id === currentUser?.uid}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setUserToDelete(u.id)}
+                            disabled={u.id === currentUser?.uid}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                      No engineers found in the registry.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </Card>
       </div>
 
       <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Security Protocol: Delete Staff?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the engineer's profile from the staff registry. This action cannot be undone.
+              This will permanently remove the engineer's profile from the Staff Registry. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
