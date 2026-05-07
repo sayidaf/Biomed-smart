@@ -57,7 +57,7 @@ export function SidebarNav() {
     }
   }
 
-  // Enhanced case-insensitive Admin role detection
+  // Consistent Case-Insensitive Role Check
   const isAdmin = profile?.role?.toLowerCase() === 'admin'
   const currentNavItems = isAdmin ? adminNavItems : staffNavItems
 

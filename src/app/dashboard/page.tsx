@@ -8,7 +8,6 @@ import { MaintenanceOverview } from "@/components/dashboard/maintenance-overview
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
-  ArrowUpRight,
   Plus,
   Filter,
   Wrench,
@@ -17,7 +16,8 @@ import {
   Users,
   ShieldCheck,
   UserPlus,
-  ChevronRight
+  ChevronRight,
+  UserCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
@@ -53,7 +53,7 @@ export default function DashboardPage() {
   const { data: profile } = useDoc(profileRef)
 
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile || profile.role === 'Admin') return null
+    if (!db || !profile || profile.role?.toLowerCase() === 'admin') return null
     return collection(db, "equipment")
   }, [db, profile])
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
@@ -62,7 +62,8 @@ export default function DashboardPage() {
 
   if (isUserLoading) return null
 
-  const isAdmin = profile?.role === 'Admin'
+  // Standardized role check
+  const isAdmin = profile?.role?.toLowerCase() === 'admin'
 
   return (
     <AppShell>
@@ -70,17 +71,19 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-3xl font-headline font-bold text-primary">Welcome back, {user?.displayName || profile?.firstName || 'Engineer'}</h1>
+              <h1 className="text-3xl font-headline font-bold text-primary">
+                Welcome back, {profile?.firstName || user?.email?.split('@')[0]}
+              </h1>
               {isAdmin && (
                 <Badge variant="default" className="bg-primary hover:bg-primary gap-1 px-2 py-0.5">
                   <ShieldCheck className="w-3 h-3" />
-                  Administrator
+                  System Administrator
                 </Badge>
               )}
             </div>
             <p className="text-muted-foreground">
-              {currentDate ? `Today is ${currentDate}. ` : ''}
-              System status: Active. 2026 Facility Protocol engaged.
+              {currentDate ? `Date: ${currentDate}. ` : ''}
+              Protocol BioMedLink-2026 is fully active.
             </p>
           </div>
           {!isAdmin && (
@@ -104,38 +107,50 @@ export default function DashboardPage() {
             <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <div className="space-y-1">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <Users className="w-6 h-6 text-primary" />
-                    Administrative Control Panel
+                  <CardTitle className="text-xl flex items-center gap-2 text-primary">
+                    <Users className="w-6 h-6" />
+                    Administrative Control Center
                   </CardTitle>
-                  <CardDescription className="text-base">Centrally manage your biomedical engineering team and facility permissions.</CardDescription>
+                  <CardDescription className="text-base">
+                    Authorized hub for personnel registry management and facility security oversight.
+                  </CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="flex gap-4">
+              <CardContent className="flex gap-4 pt-4">
                 <Link href="/users">
-                  <Button size="lg" className="gap-2 px-8">
+                  <Button size="lg" className="gap-2 px-8 shadow-xl shadow-primary/20">
                     <UserPlus className="w-5 h-5" />
-                    Open Staff Registry
+                    Manage Staff Registry
                   </Button>
                 </Link>
               </CardContent>
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-none shadow-sm">
+              <Card className="border-none shadow-sm bg-card">
                 <CardHeader>
-                  <CardTitle className="text-lg">Staff Overview</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-accent" />
+                    Security Compliance
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">Monitor technician activities and facility audits from the Staff Management section.</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    All terminal interactions are logged under ISO-2026 security protocols. Use the Staff Registry to provision new accounts with secure PINs.
+                  </p>
                 </CardContent>
               </Card>
-              <Card className="border-none shadow-sm">
+              <Card className="border-none shadow-sm bg-card">
                 <CardHeader>
-                  <CardTitle className="text-lg">System Audit</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                    <ShieldCheck className="w-5 h-5" />
+                    Network Integrity
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">All system logs are being recorded for the 2026 compliance review.</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Facility Node Node-01 is currently synchronized. System audit reports can be generated from the Reports module in the staff node.
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -167,7 +182,7 @@ export default function DashboardPage() {
                               <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{eq.name}</h4>
                               <span className="text-[10px] text-muted-foreground uppercase font-bold">URGENT</span>
                             </div>
-                            <p className="text-xs text-muted-foreground mb-2">Unit reported as faulty. Technical diagnosis required.</p>
+                            <p className="text-xs text-muted-foreground mb-2">Technical diagnosis required for this unit.</p>
                             <Badge variant="secondary" className="text-[10px] font-mono">{eq.serialNumber}</Badge>
                           </div>
                         </div>
@@ -175,7 +190,7 @@ export default function DashboardPage() {
                     ) : (
                       <div className="flex flex-col items-center justify-center py-10 text-center">
                         <ShieldCheck className="w-8 h-8 text-green-500 mb-2 opacity-50" />
-                        <p className="text-sm text-muted-foreground">All systems clear. No critical faults reported.</p>
+                        <p className="text-sm text-muted-foreground">Systems operational. No critical faults detected.</p>
                       </div>
                     )}
                   </div>
@@ -184,7 +199,7 @@ export default function DashboardPage() {
 
               <Card className="border-none shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-headline">System Activity Log</CardTitle>
+                  <CardTitle className="text-lg font-headline">Recent Technical Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
                    <div className="relative space-y-6 before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted">
@@ -194,9 +209,9 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="text-sm">
-                          <span className="font-bold text-primary">Terminal</span>{' '}
-                          <span className="text-muted-foreground">System node authenticated for</span>{' '}
-                          <span className="font-semibold">{profile?.role || 'Engineer'}</span>
+                          <span className="font-bold text-primary">System</span>{' '}
+                          <span className="text-muted-foreground">Authenticated via terminal for</span>{' '}
+                          <span className="font-semibold">{profile?.role || 'Staff'}</span>
                         </p>
                         <span className="text-[10px] text-muted-foreground uppercase font-medium">LIVE</span>
                       </div>
