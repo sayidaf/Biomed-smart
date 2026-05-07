@@ -7,6 +7,7 @@ import { StatsGrid } from "@/components/dashboard/stats-grid"
 import { MaintenanceOverview } from "@/components/dashboard/maintenance-overview"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 import { 
   Plus,
   Wrench,
