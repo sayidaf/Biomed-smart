@@ -65,6 +65,7 @@ export default function DashboardPage() {
 
       setIsLinking(true)
       try {
+        // Query to find existing profile record by email
         const q = query(
           collection(db, "userProfiles"), 
           where("email", "==", user.email),
@@ -76,6 +77,7 @@ export default function DashboardPage() {
           const existingDoc = querySnapshot.docs[0]
           const data = existingDoc.data()
           
+          // If the doc exists but isn't at the UID path, link it
           if (existingDoc.id !== user.uid) {
             await setDoc(doc(db, "userProfiles", user.uid), {
               ...data,
@@ -83,17 +85,18 @@ export default function DashboardPage() {
               updatedAt: serverTimestamp()
             })
             
+            // Clean up the old email-based or random-id doc
             await deleteDoc(existingDoc.ref)
             
             toast({
               title: "Profile Synchronized",
-              description: "Registry entry linked to your system identity.",
+              description: "Your professional registry entry has been linked to your system identity.",
             })
             window.location.reload()
           }
         }
       } catch (error) {
-        console.error("Auto-link protocol failed:", error)
+        console.warn("Handshake discovery in progress...", error)
       } finally {
         setIsLinking(false)
       }
@@ -109,17 +112,15 @@ export default function DashboardPage() {
   const isEngineer = roleString === 'biomedical engineer' || roleString === 'technician'
 
   const allUsersQuery = useMemoFirebase(() => {
-    // ONLY fire the full user list query if we are CONFIRMED as an admin
     if (!db || !isAdmin) return null
     return collection(db, "userProfiles")
   }, [db, isAdmin])
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(allUsersQuery)
 
   const equipmentQuery = useMemoFirebase(() => {
-    // ONLY fire the equipment query if we are CONFIRMED as staff
-    if (!db || !isEngineer) return null
+    if (!db || !isEngineer && !isAdmin) return null
     return collection(db, "equipment")
-  }, [db, isEngineer])
+  }, [db, isEngineer, isAdmin])
   
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
@@ -163,7 +164,7 @@ export default function DashboardPage() {
           
           <div className="p-6 bg-muted rounded-xl text-left space-y-4 border border-border shadow-inner">
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">System UID (Doc ID)</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Your System UID (Use as Doc ID)</Label>
               <div className="flex items-center gap-2 bg-background p-2 rounded border font-mono text-xs overflow-hidden">
                 <span className="truncate flex-1">{user?.uid}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={copyUid}>
@@ -173,18 +174,18 @@ export default function DashboardPage() {
             </div>
             <div className="text-[11px] space-y-2 text-muted-foreground">
               <p>1. Open Firebase Console &gt; Firestore</p>
-              <p>2. Go to collection: <strong>userProfiles</strong></p>
-              <p>3. Create document with ID: <strong>(Paste UID)</strong></p>
-              <p>4. Add field: <strong>role</strong> (e.g. "Admin" or "Biomedical Engineer")</p>
+              <p>2. Navigate to collection: <strong>userProfiles</strong></p>
+              <p>3. Add document with ID: <strong>(Paste your UID from above)</strong></p>
+              <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
               <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong>, <strong>id</strong></p>
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <Button onClick={() => window.location.reload()} className="w-full gap-2">
               <RefreshCw className="w-4 h-4" />
-              Reload Protocol
+              Refresh Terminal
             </Button>
-            <Button variant="outline" onClick={() => router.push("/")} className="w-full">Back to Entry</Button>
+            <Button variant="outline" onClick={() => router.push("/")} className="w-full">Back to Login</Button>
           </div>
         </div>
       </AppShell>
@@ -212,12 +213,12 @@ export default function DashboardPage() {
               Status: Connected.
             </p>
           </div>
-          {isEngineer && (
+          {(isEngineer || isAdmin) && (
             <div className="flex items-center gap-2">
               <Link href="/equipment" className="w-full sm:w-auto">
                 <Button size="sm" className="w-full shadow-lg shadow-primary/20">
                   <Plus className="w-4 h-4 mr-2" />
-                  New Asset
+                  Register Asset
                 </Button>
               </Link>
             </div>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { 
@@ -17,22 +16,21 @@ export function StatsGrid() {
   const db = useFirestore()
   const { user: currentUser } = useUser()
   
-  // Get user profile first to ensure staff access
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Robust Case-Insensitive Role Check for component logic
   const roleString = profile?.role?.toString().toLowerCase() || ''
-  const isEngineer = roleString === 'biomedical engineer' || roleString === 'technician'
+  const isStaff = roleString === 'admin' || roleString === 'biomedical engineer' || roleString === 'technician'
 
-  // Only query equipment if user is recognized as engineering staff
   const eqQuery = useMemoFirebase(() => {
-    if (!db || !profile || !isEngineer) return null
+    // CRITICAL: Only fire the query if the profile is loaded and the user has a valid staff role
+    // This prevents "Missing or insufficient permissions" errors before the user is verified.
+    if (!db || !profile || !isStaff) return null
     return collection(db, "equipment")
-  }, [db, profile, isEngineer])
+  }, [db, profile, isStaff])
   
   const { data: equipment, isLoading } = useCollection(eqQuery)
 

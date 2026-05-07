@@ -3,30 +3,23 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * BIOMEDLINK SECURITY RULES
-     * 
-     * Enforces Role-Based Access Control (RBAC).
-     * Note: getProfile() relies on the document ID matching request.auth.uid.
+     * BIOMEDLINK SECURITY RULES - ROBUST EDITION
      */
-
-    // --- GLOBAL HELPER FUNCTIONS ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Direct check for document ownership based on UID
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Helper to get the user's role from their UID-based profile
-    function getUserRole() {
-      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role;
-    }
-
+    // Safely check for a role without crashing if the document doesn't exist
     function hasRole(role) {
-      // Note: role in DB must match exactly (e.g., 'Admin', 'Biomedical Engineer')
-      return isSignedIn() && exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && getUserRole() == role;
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == role;
     }
 
     function isAdmin() {
@@ -34,18 +27,17 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return isSignedIn() && exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-             (getUserRole() == 'Admin' || getUserRole() == 'Biomedical Engineer' || getUserRole() == 'Technician');
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+             (get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role in ['Admin', 'Biomedical Engineer', 'Technician']);
     }
-
-    // --- COLLECTION RULES ---
 
     match /userProfiles/{userId} {
       // Users can ALWAYS see and update their own profile document
       allow get, update: if isOwner(userId) || isAdmin();
       
-      // Admins can see all. Unlinked users can search for their registry entry via handshake.
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1 && request.auth.token.email != null && request.query.filters.email == [request.auth.token.email]);
+      // HANDSHAKE PROTOCOL: Allow a user to find their own profile by email to perform the UID link
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1 && resource.data.email == request.auth.token.email);
       
       allow create: if (isSignedIn() && request.resource.data.id == userId) || isAdmin();
       
@@ -54,7 +46,7 @@ service cloud.firestore {
     }
 
     match /departments/{departmentId} {
-      allow get, list: if isSignedIn(); // Allow reading for all logged in staff
+      allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
 
@@ -66,15 +58,13 @@ service cloud.firestore {
 
     match /equipment/{equipmentId}/maintenanceLogs/{logId} {
       allow get, list: if isStaff();
-      allow create: if isStaff();
-      allow update: if isStaff();
+      allow create, update: if isStaff();
       allow delete: if isAdmin();
     }
 
     match /equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId} {
       allow get, list: if isStaff();
-      allow create: if isStaff();
-      allow update: if isStaff();
+      allow create, update: if isStaff();
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
