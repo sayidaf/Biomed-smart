@@ -9,14 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { 
   Plus,
-  Filter,
   Wrench,
   AlertCircle,
   Loader2,
   Users,
   ShieldCheck,
   UserPlus,
-  ChevronRight,
   UserCheck,
   Database
 } from "lucide-react"
@@ -90,7 +88,7 @@ export default function DashboardPage() {
             This happens if you were created manually in Authentication instead of using the app's signup form.
           </p>
           <div className="p-4 bg-muted rounded-lg text-left text-xs font-mono">
-            <p>1. Go to Firebase Console -> Firestore</p>
+            <p>1. Go to Firebase Console {'->'} Firestore</p>
             <p>2. Create collection: <strong>userProfiles</strong></p>
             <p>3. Add document with ID: <strong>{user?.uid}</strong></p>
             <p>4. Add field: <strong>role</strong> (string) = "Admin"</p>
