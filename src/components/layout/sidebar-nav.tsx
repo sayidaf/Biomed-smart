@@ -17,9 +17,11 @@ import {
   LogOut
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/firebase"
+import { signOut } from "firebase/auth"
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Departments', href: '/departments', icon: Building2 },
   { name: 'Equipment', href: '/equipment', icon: Stethoscope },
   { name: 'AI Troubleshoot', href: '/troubleshoot', icon: BrainCircuit },
@@ -32,10 +34,13 @@ const navItems = [
 export function SidebarNav() {
   const pathname = usePathname()
   const router = useRouter()
+  const auth = useAuth()
 
-  const handleLogout = () => {
-    // For now, redirect to home page. In a full implementation, add auth sign-out logic here.
-    router.push("/")
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth)
+      router.push("/")
+    }
   }
 
   return (
