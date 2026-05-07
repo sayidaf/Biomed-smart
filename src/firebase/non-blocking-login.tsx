@@ -1,9 +1,12 @@
+
 'use client';
 import {
-  Auth, // Import Auth type for type hinting
+  Auth,
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  updatePassword,
+  User
 } from 'firebase/auth';
 
 /** Initiate anonymous sign-in (non-blocking). */
@@ -21,4 +24,9 @@ export function initiateEmailSignUp(authInstance: Auth, email: string, password:
 /** Initiate email/password sign-in. Returns a promise to allow UI error handling. */
 export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): Promise<any> {
   return signInWithEmailAndPassword(authInstance, email, password);
+}
+
+/** Update the current user's password. */
+export function updateUserPassword(user: User, newPassword: string): Promise<void> {
+  return updatePassword(user, newPassword);
 }

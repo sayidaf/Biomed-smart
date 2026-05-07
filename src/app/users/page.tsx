@@ -1,15 +1,15 @@
+
 "use client"
 
 import { useState } from "react"
 import { AppShell } from "@/components/layout/app-shell"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
   UserPlus, 
   Users, 
-  ShieldCheck, 
   Trash2, 
   Mail,
   User,
@@ -17,20 +17,14 @@ import {
   Loader2,
   AlertCircle,
   Lock,
-  Stethoscope
+  Stethoscope,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { 
   Dialog, 
   DialogContent, 
@@ -47,6 +41,7 @@ export default function UsersManagementPage() {
   const router = useRouter()
   const { user: currentUser } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   
   const currentUserProfileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
@@ -62,7 +57,6 @@ export default function UsersManagementPage() {
     password: "" 
   })
 
-  // Case-Insensitive Check for Admin query
   const roleString = profile?.role?.toString().toLowerCase() || ''
   const isAdmin = roleString === 'admin'
 
@@ -80,7 +74,6 @@ export default function UsersManagementPage() {
     const newUserId = Math.random().toString(36).substring(2, 15)
     const userRef = doc(db, "userProfiles", newUserId)
     
-    // Always default to Biomedical Engineer for staff management entries
     setDocumentNonBlocking(userRef, {
       id: newUserId,
       email: formData.email,
@@ -93,6 +86,7 @@ export default function UsersManagementPage() {
 
     setIsDialogOpen(false)
     setFormData({ email: "", firstName: "", lastName: "", password: "" })
+    setShowPassword(false)
   }
 
   const handleDeleteUser = (userId: string) => {
@@ -196,13 +190,20 @@ export default function UsersManagementPage() {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
                       id="password" 
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       className="pl-10"
                       placeholder="••••••••" 
                       value={formData.password}
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
                       required 
                     />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
                 <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-center gap-3">

@@ -13,7 +13,8 @@ import {
   FileText,
   BrainCircuit,
   LogOut,
-  Users
+  Users,
+  Lock
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth, useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
@@ -29,6 +30,7 @@ const staffNavItems = [
   { name: 'Faults', href: '/faults', icon: AlertTriangle },
   { name: 'History', href: '/history', icon: History },
   { name: 'Reports', href: '/reports', icon: FileText },
+  { name: 'Security', href: '/security', icon: Lock },
 ]
 
 const adminNavItems = [
@@ -57,7 +59,6 @@ export function SidebarNav() {
     }
   }
 
-  // Robust Case-Insensitive Role Check
   const roleString = profile?.role?.toString().toLowerCase() || ''
   const isAdmin = roleString === 'admin'
   const currentNavItems = isAdmin ? adminNavItems : staffNavItems
