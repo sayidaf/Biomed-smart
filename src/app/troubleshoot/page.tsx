@@ -16,7 +16,8 @@ import {
   History,
   FileSearch,
   Zap,
-  Microscope
+  Microscope,
+  Building2
 } from "lucide-react"
 import { aiTroubleshoot, type AITroubleshootingOutput } from "@/ai/flows/ai-troubleshooting-assistant-flow"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
@@ -32,21 +33,23 @@ export default function TroubleshootPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<AITroubleshootingOutput | null>(null)
 
-  // Check role
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Real-time Equipment
   const equipmentQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "equipment")
   }, [db, profile])
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
+
+  const departmentsQuery = useMemoFirebase(() => {
+    if (!db || !profile) return null
+    return collection(db, "departments")
+  }, [db, profile])
+  const { data: departments } = useCollection(departmentsQuery)
 
   const handleTroubleshoot = async () => {
     if (!problem.trim() || !selectedEqId) return
@@ -55,6 +58,8 @@ export default function TroubleshootPage() {
     try {
       const eq = equipment?.find(e => e.id === selectedEqId)
       if (!eq) return
+
+      const dept = departments?.find(d => d.id === eq.departmentId)
 
       const response = await aiTroubleshoot({
         equipmentId: eq.id,
@@ -65,7 +70,8 @@ export default function TroubleshootPage() {
           manufacturer: eq.manufacturer,
           modelNumber: eq.modelNumber,
           serialNumber: eq.serialNumber,
-          status: eq.status
+          status: eq.status,
+          department: dept?.name || 'Unknown Department'
         }
       })
       setResult(response)
@@ -75,6 +81,9 @@ export default function TroubleshootPage() {
       setIsLoading(false)
     }
   }
+
+  const selectedEq = equipment?.find(e => e.id === selectedEqId)
+  const selectedDept = departments?.find(d => d.id === selectedEq?.departmentId)
 
   return (
     <AppShell>
@@ -86,7 +95,7 @@ export default function TroubleshootPage() {
               AI Assistant
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Smart diagnostic guidance powered by AI.
+              Context-aware diagnostic guidance for clinical hardware.
             </p>
           </div>
           <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
@@ -96,16 +105,15 @@ export default function TroubleshootPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Input Side */}
           <div className="lg:col-span-5 space-y-6">
             <Card className="border-none shadow-sm">
               <CardHeader className="p-4 md:p-6">
-                <CardTitle className="text-lg">Device Diagnosis</CardTitle>
-                <CardDescription>Enter problem details for analysis</CardDescription>
+                <CardTitle className="text-lg">System Diagnosis</CardTitle>
+                <CardDescription>Select asset and describe technical symptoms</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
                 <div className="space-y-2">
-                  <Label>Equipment Unit</Label>
+                  <Label>Hardware Target</Label>
                   <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                     {isEqLoading ? (
                       <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
@@ -129,15 +137,25 @@ export default function TroubleshootPage() {
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-muted-foreground text-center py-4">No equipment found.</p>
+                      <p className="text-xs text-muted-foreground text-center py-4">No assets registered.</p>
                     )}
                   </div>
                 </div>
 
+                {selectedEq && (
+                  <div className="p-3 bg-secondary/30 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Department:</span>{' '}
+                      <span className="font-bold text-primary">{selectedDept?.name || 'N/A'}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label>Error Code (Optional)</Label>
+                  <Label>Error Code</Label>
                   <Input 
-                    placeholder="e.g. E-203" 
+                    placeholder="e.g. E-203, System Halt" 
                     value={errorCode}
                     onChange={(e) => setErrorCode(e.target.value)}
                     className="h-10 bg-muted/20"
@@ -145,9 +163,9 @@ export default function TroubleshootPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Problem Description</Label>
+                  <Label>Symptom Analysis</Label>
                   <Textarea 
-                    placeholder="Describe symptoms..." 
+                    placeholder="Describe exactly what the hardware is doing or failing to do..." 
                     className="min-h-[120px] bg-muted/20"
                     value={problem}
                     onChange={(e) => setProblem(e.target.value)}
@@ -162,12 +180,12 @@ export default function TroubleshootPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Analyzing...
+                      Synthesizing Response...
                     </>
                   ) : (
                     <>
                       <Zap className="w-4 h-4 fill-white" />
-                      Generate Solution
+                      Engage Diagnostic Flow
                     </>
                   )}
                 </Button>
@@ -175,15 +193,14 @@ export default function TroubleshootPage() {
             </Card>
           </div>
 
-          {/* Result Side */}
           <div className="lg:col-span-7">
             {result ? (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                 <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary overflow-hidden">
                   <CardHeader className="p-4 md:p-6">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Badge className="bg-primary hover:bg-primary text-[10px]">AI DIAGNOSIS</Badge>
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Analysis Complete</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Context: {selectedDept?.name}</span>
                     </div>
                     <CardTitle className="text-xl md:text-2xl mt-2">{result.diagnosis}</CardTitle>
                   </CardHeader>
@@ -201,7 +218,7 @@ export default function TroubleshootPage() {
                      <CardHeader className="pb-2 p-4">
                       <CardTitle className="text-sm flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                        Actions
+                        Recommended Actions
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
@@ -217,7 +234,7 @@ export default function TroubleshootPage() {
                      <CardHeader className="pb-2 p-4">
                       <CardTitle className="text-sm flex items-center gap-2 text-destructive">
                         <AlertTriangle className="w-4 h-4 shrink-0" />
-                        Precautions
+                        Safety Precautions
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
@@ -234,7 +251,7 @@ export default function TroubleshootPage() {
                   <CardHeader className="p-4 md:p-6">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <FileSearch className="w-5 h-5 text-accent shrink-0" />
-                      Resolution Steps
+                      Technical Step-by-Step
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
@@ -250,7 +267,7 @@ export default function TroubleshootPage() {
                     </div>
                     {result.estimatedRepairTime && (
                       <div className="mt-8 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                        <span className="text-sm font-semibold">Est. Time to Repair:</span>
+                        <span className="text-sm font-semibold">Projected Maintenance Time:</span>
                         <Badge variant="outline" className="text-primary border-primary text-[10px]">{result.estimatedRepairTime}</Badge>
                       </div>
                     )}
@@ -258,18 +275,18 @@ export default function TroubleshootPage() {
                 </Card>
 
                 <div className="flex flex-col sm:flex-row justify-end gap-3">
-                  <Button variant="outline" className="w-full sm:w-auto">Save to Log</Button>
-                  <Button className="w-full sm:w-auto">Open Service Ticket</Button>
+                  <Button variant="outline" className="w-full sm:w-auto">Log Session</Button>
+                  <Button className="w-full sm:w-auto">Raise Service Ticket</Button>
                 </div>
               </div>
             ) : (
-              <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-xl border border-dashed border-border">
+              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-xl border border-dashed border-border">
                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-muted flex items-center justify-center mb-6">
                   <BrainCircuit className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground opacity-40" />
                 </div>
-                <h3 className="text-lg md:text-xl font-headline font-bold text-muted-foreground">Ready to Assist</h3>
+                <h3 className="text-lg md:text-xl font-headline font-bold text-muted-foreground">Intelligence Terminal Idle</h3>
                 <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                  Submit a problem description to generate diagnostic steps.
+                  Select a specific hardware asset and describe the failure to receive context-aware engineering support.
                 </p>
               </div>
             )}

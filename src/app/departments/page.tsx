@@ -9,11 +9,9 @@ import {
   Building2, 
   Plus, 
   Stethoscope, 
-  MoreVertical,
   ChevronRight,
   Loader2
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
@@ -29,24 +27,21 @@ import {
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import Link from "next/link"
 
 export default function DepartmentsPage() {
   const db = useFirestore()
   const { user: currentUser } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  // Check role
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Conditional fetch based on profile existence/role
   const deptQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "departments")
   }, [db, profile])
   const { data: departments, isLoading } = useCollection(deptQuery)
@@ -74,7 +69,6 @@ export default function DepartmentsPage() {
     setFormData({ name: "", description: "" })
   }
 
-  // Admins and Biomedical Engineers can add departments
   const canAddDept = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
 
   return (
@@ -90,25 +84,35 @@ export default function DepartmentsPage() {
               <DialogTrigger asChild>
                 <Button size="sm" className="shadow-lg shadow-primary/20">
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Department
+                  Create Department
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create Department</DialogTitle>
-                  <DialogDescription>Define a new hospital sector.</DialogDescription>
+                  <DialogTitle>Define New Department</DialogTitle>
+                  <DialogDescription>Add a new sector to the hospital's engineering registry.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddDept} className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Department Name</Label>
-                    <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="e.g. Radiology" />
+                    <Input 
+                      value={formData.name} 
+                      onChange={e => setFormData({...formData, name: e.target.value})} 
+                      required 
+                      placeholder="e.g. ICU, Radiology, Cardiology" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Description</Label>
-                    <Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required placeholder="Scope of medical services..." />
+                    <Textarea 
+                      value={formData.description} 
+                      onChange={e => setFormData({...formData, description: e.target.value})} 
+                      required 
+                      placeholder="Specify the medical scope or technical focus of this department..." 
+                    />
                   </div>
                   <DialogFooter>
-                    <Button type="submit" className="w-full">Create Department</Button>
+                    <Button type="submit" className="w-full">Initialize Department</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -141,18 +145,24 @@ export default function DepartmentsPage() {
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                       <div className="flex items-center gap-2">
                         <Stethoscope className="w-4 h-4 text-accent" />
-                        <span className="text-sm font-bold">Manage Assets</span>
+                        <span className="text-sm font-bold">Local Assets</span>
                       </div>
-                      <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
-                        Inventory
-                        <ChevronRight className="ml-1 w-4 h-4" />
-                      </Button>
+                      <Link href={`/equipment?dept=${dept.id}`}>
+                        <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
+                          View
+                          <ChevronRight className="ml-1 w-4 h-4" />
+                        </Button>
+                      </Link>
                     </div>
                   </CardContent>
                 </Card>
               ))
             ) : (
-              <p className="col-span-full text-center text-muted-foreground py-10">No departments configured yet.</p>
+              <div className="col-span-full flex flex-col items-center justify-center py-20 bg-muted/20 rounded-2xl border border-dashed">
+                <Building2 className="w-12 h-12 text-muted-foreground opacity-20 mb-4" />
+                <h3 className="text-lg font-bold text-muted-foreground">Registry Empty</h3>
+                <p className="text-sm text-muted-foreground">Define your first hospital department to start tracking assets.</p>
+              </div>
             )}
           </div>
         )}

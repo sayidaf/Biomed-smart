@@ -13,8 +13,7 @@ import {
   EyeOff,
   Activity,
   Zap,
-  Microscope,
-  UserPlus
+  Microscope
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -85,22 +84,25 @@ export default function LandingPage() {
       const userCredential = await initiateEmailSignUp(auth, email, password)
       const newUser = userCredential.user
       
-      // Create Firestore Profile immediately
-      await setDoc(doc(db, "userProfiles", newUser.uid), {
+      // CRITICAL: Ensure profile is created immediately with matching ID
+      const userProfileRef = doc(db, "userProfiles", newUser.uid)
+      await setDoc(userProfileRef, {
         id: newUser.uid,
         email: email,
         firstName: firstName,
         lastName: lastName,
-        role: "Biomedical Engineer", // Default role
+        role: "Biomedical Engineer",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       })
 
       toast({
         title: "Registry Initialized",
-        description: "Professional profile created. Redirecting to terminal...",
+        description: "Professional profile created successfully.",
       })
+      router.push("/dashboard")
     } catch (error: any) {
+      console.error("Registration error:", error)
       toast({
         variant: "destructive",
         title: "Initialization Failed",
@@ -119,7 +121,6 @@ export default function LandingPage() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-x-hidden bg-background py-12 md:py-0 px-4">
-      {/* Background grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       
       <div className="relative z-10 w-full max-w-6xl flex flex-col items-center gap-8 md:gap-12">
