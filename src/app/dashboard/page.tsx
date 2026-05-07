@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
-import { collection, doc, query, where, getDocs, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, query, where, getDocs, setDoc, deleteDoc, serverTimestamp, limit } from "firebase/firestore"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -65,9 +65,11 @@ export default function DashboardPage() {
 
       setIsLinking(true)
       try {
-        // Search for a document where email matches the current user
-        // This query is now allowed by the updated security rules
-        const q = query(collection(db, "userProfiles"), where("email", "==", user.email))
+        const q = query(
+          collection(db, "userProfiles"), 
+          where("email", "==", user.email),
+          limit(1)
+        )
         const querySnapshot = await getDocs(q)
         
         if (!querySnapshot.empty) {
@@ -75,20 +77,17 @@ export default function DashboardPage() {
           const data = existingDoc.data()
           
           if (existingDoc.id !== user.uid) {
-            // Link existing profile data to the current System UID
             await setDoc(doc(db, "userProfiles", user.uid), {
               ...data,
               id: user.uid,
               updatedAt: serverTimestamp()
             })
             
-            // Delete the old email-based or temporary ID record
-            // The updated security rules allow users to delete records matching their own email
             await deleteDoc(existingDoc.ref)
             
             toast({
               title: "Profile Synchronized",
-              description: "Your professional registry entry has been successfully linked.",
+              description: "Registry entry linked to your system identity.",
             })
             window.location.reload()
           }
@@ -110,15 +109,17 @@ export default function DashboardPage() {
   const isEngineer = roleString === 'biomedical engineer' || roleString === 'technician'
 
   const allUsersQuery = useMemoFirebase(() => {
+    // ONLY fire the full user list query if we are CONFIRMED as an admin
     if (!db || !isAdmin) return null
     return collection(db, "userProfiles")
   }, [db, isAdmin])
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(allUsersQuery)
 
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile || !isEngineer) return null
+    // ONLY fire the equipment query if we are CONFIRMED as staff
+    if (!db || !isEngineer) return null
     return collection(db, "equipment")
-  }, [db, profile, isEngineer])
+  }, [db, isEngineer])
   
   const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
@@ -135,12 +136,12 @@ export default function DashboardPage() {
     }
   }
 
-  if (isUserLoading || isProfileLoading || isLinking) {
+  if (isUserLoading || isProfileLoading || (isLinking && !profile)) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          {isLinking && <p className="text-sm text-muted-foreground animate-pulse">Synchronizing Security Credentials...</p>}
+          <p className="text-sm text-muted-foreground animate-pulse">Initializing Terminal Connection...</p>
         </div>
       </AppShell>
     )
@@ -154,15 +155,15 @@ export default function DashboardPage() {
             <Database className="w-8 h-8 text-orange-600" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Registry Initialization Required</h2>
+            <h2 className="text-2xl font-bold font-headline">Registry Entry Missing</h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Authenticated session active for <strong>{user?.email}</strong>, but no linked professional profile was found.
+              Authenticated session for <strong>{user?.email}</strong> is active, but your professional profile document was not found.
             </p>
           </div>
           
           <div className="p-6 bg-muted rounded-xl text-left space-y-4 border border-border shadow-inner">
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">System Authentication UID</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">System UID (Doc ID)</Label>
               <div className="flex items-center gap-2 bg-background p-2 rounded border font-mono text-xs overflow-hidden">
                 <span className="truncate flex-1">{user?.uid}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={copyUid}>
@@ -172,18 +173,18 @@ export default function DashboardPage() {
             </div>
             <div className="text-[11px] space-y-2 text-muted-foreground">
               <p>1. Open Firebase Console &gt; Firestore</p>
-              <p>2. Navigate to collection: <strong>userProfiles</strong></p>
-              <p>3. Add document with ID: <strong>(Paste your UID from above)</strong></p>
-              <p>4. Add string field: <strong>role</strong> (e.g., "Admin" or "Biomedical Engineer")</p>
+              <p>2. Go to collection: <strong>userProfiles</strong></p>
+              <p>3. Create document with ID: <strong>(Paste UID)</strong></p>
+              <p>4. Add field: <strong>role</strong> (e.g. "Admin" or "Biomedical Engineer")</p>
               <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong>, <strong>id</strong></p>
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <Button onClick={() => window.location.reload()} className="w-full gap-2">
               <RefreshCw className="w-4 h-4" />
-              Retry Synchronization
+              Reload Protocol
             </Button>
-            <Button variant="outline" onClick={() => router.push("/")} className="w-full">Back to Login</Button>
+            <Button variant="outline" onClick={() => router.push("/")} className="w-full">Back to Entry</Button>
           </div>
         </div>
       </AppShell>
@@ -208,7 +209,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-sm text-muted-foreground">
               {currentDate ? `Protocol Active: ${currentDate}. ` : ''}
-              System status: Secure.
+              Status: Connected.
             </p>
           </div>
           {isEngineer && (
@@ -230,7 +231,7 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <Users className="w-8 h-8 text-primary" />
-                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">Active Registry</Badge>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">Registry</Badge>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Engineers</p>
@@ -245,10 +246,10 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <TrendingUp className="w-8 h-8 text-accent" />
-                    <Badge variant="secondary" className="bg-accent/10 text-accent text-[10px]">Efficiency</Badge>
+                    <Badge variant="secondary" className="bg-accent/10 text-accent text-[10px]">Uptime</Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">System Performance</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Network Efficiency</p>
                     <h3 className="text-3xl md:text-4xl font-headline font-bold mt-1">94%</h3>
                   </div>
                 </CardContent>
@@ -258,10 +259,10 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <Award className="w-8 h-8 text-orange-500" />
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-600 text-[10px]">Compliance</Badge>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-600 text-[10px]">SLA</Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">SLA Status</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Compliance Status</p>
                     <h3 className="text-3xl md:text-4xl font-headline font-bold mt-1 text-orange-600">Stable</h3>
                   </div>
                 </CardContent>
@@ -274,19 +275,19 @@ export default function DashboardPage() {
                   <div className="space-y-1">
                     <CardTitle className="text-xl flex items-center gap-2">
                       <UserCheck className="w-6 h-6 text-primary" />
-                      Personnel Control
+                      Personnel Registry
                     </CardTitle>
-                    <CardDescription>Monitor engineer activity and system access.</CardDescription>
+                    <CardDescription>Manage authorized biomedical engineering staff.</CardDescription>
                   </div>
                   <Link href="/users">
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto">Staff Registry</Button>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">Manage Users</Button>
                   </Link>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="p-8 text-center bg-muted/20">
+                <div className="p-8 text-center bg-muted/20 border-t border-border/50">
                    <p className="text-muted-foreground text-sm max-w-lg mx-auto">
-                     Performance metrics for individual engineers are aggregated from troubleshooting logs and maintenance resolution times.
+                     System administrators can provision new accounts, modify access roles, and audit technical activity across the hospital network.
                    </p>
                 </div>
               </CardContent>
@@ -299,9 +300,9 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="border-none shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between px-4 md:px-6">
-                  <CardTitle className="text-lg font-headline">Urgent Fault Reports</CardTitle>
+                  <CardTitle className="text-lg font-headline">Urgent Faults</CardTitle>
                   <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 text-[10px]">
-                    {faultyEquipment?.length || 0} Critical
+                    {faultyEquipment?.length || 0} Reports
                   </Badge>
                 </CardHeader>
                 <CardContent className="px-4 md:px-6">
@@ -326,7 +327,7 @@ export default function DashboardPage() {
                     ) : (
                       <div className="flex flex-col items-center justify-center py-10 text-center">
                         <ShieldCheck className="w-8 h-8 text-green-500 mb-2 opacity-50" />
-                        <p className="text-sm text-muted-foreground">Systems operational. No critical faults detected.</p>
+                        <p className="text-sm text-muted-foreground">All systems are currently operational.</p>
                       </div>
                     )}
                   </div>
@@ -335,18 +336,18 @@ export default function DashboardPage() {
 
               <Card className="border-none shadow-sm">
                 <CardHeader className="px-4 md:px-6">
-                  <CardTitle className="text-lg font-headline">Recent Technical Activity</CardTitle>
+                  <CardTitle className="text-lg font-headline">Terminal Activity</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 md:px-6">
                    <div className="relative space-y-6 before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted">
                     <div className="relative pl-10">
                       <div className="absolute left-0 top-1 w-9 h-9 rounded-full bg-card border-2 border-primary flex items-center justify-center z-10">
-                        <Wrench className="w-4 h-4 text-primary" />
+                        <RefreshCw className="w-4 h-4 text-primary" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm leading-relaxed">
-                          <span className="font-bold text-primary">System</span>{' '}
-                          <span className="text-muted-foreground">Authenticated via terminal for</span>{' '}
+                          <span className="font-bold text-primary">System Synchronization</span>{' '}
+                          <span className="text-muted-foreground">successfully verified professional role:</span>{' '}
                           <span className="font-semibold">{profile?.role || 'Staff'}</span>
                         </p>
                         <span className="text-[10px] text-muted-foreground uppercase font-medium">LIVE</span>

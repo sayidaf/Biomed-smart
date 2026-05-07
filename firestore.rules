@@ -25,6 +25,7 @@ service cloud.firestore {
     }
 
     function hasRole(role) {
+      // Note: role in DB must match exactly (e.g., 'Admin', 'Biomedical Engineer')
       return isSignedIn() && exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && getUserRole() == role;
     }
 
@@ -40,16 +41,13 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /userProfiles/{userId} {
-      // Allow user to get their own profile OR Admins to see all
-      allow get: if isOwner(userId) || isAdmin();
+      // Users can ALWAYS see and update their own profile document
+      allow get, update: if isOwner(userId) || isAdmin();
       
-      // Allow listing profiles ONLY for Admins, 
-      // OR for users searching for their own email (for Auto-Link protocol)
-      // Note: request.query.filters.email == [request.auth.token.email] is the correct syntax for v2 rules
-      allow list: if isAdmin() || (isSignedIn() && request.auth.token.email != null && request.query.filters.email == [request.auth.token.email]);
+      // Admins can see all. Unlinked users can search for their registry entry via handshake.
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1 && request.auth.token.email != null && request.query.filters.email == [request.auth.token.email]);
       
       allow create: if (isSignedIn() && request.resource.data.id == userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
       
       // Allow users to delete temporary records matching their email during the auto-link cleanup
       allow delete: if isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
