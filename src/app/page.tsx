@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -12,13 +11,13 @@ import {
   ArrowRight,
   LogIn,
   ChevronLeft,
-  ChevronRight
+  UserPlus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useUser, useAuth } from "@/firebase"
-import { initiateEmailSignIn, initiateAnonymousSignIn } from "@/firebase/non-blocking-login"
+import { initiateEmailSignIn, initiateEmailSignUp, initiateAnonymousSignIn } from "@/firebase/non-blocking-login"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -29,13 +28,16 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import { Card, CardContent } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LandingPage() {
   const { user, isUserLoading } = useUser()
   const router = useRouter()
   const auth = useAuth()
+  const { toast } = useToast()
 
-  const [view, setView] = useState<"hero" | "login">("hero")
+  const [view, setView] = useState<"hero" | "auth">("hero")
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [authLoading, setAuthLoading] = useState(false)
@@ -46,11 +48,41 @@ export default function LandingPage() {
     }
   }, [user, router])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!auth || !email || !password) return
+    
     setAuthLoading(true)
-    initiateEmailSignIn(auth, email, password)
+    try {
+      if (authMode === "login") {
+        await initiateEmailSignIn(auth, email, password)
+      } else {
+        await initiateEmailSignUp(auth, email, password)
+        toast({
+          title: "Account Created",
+          description: "Welcome to BioMedLink. You can now access the portal.",
+        })
+      }
+    } catch (error: any) {
+      console.error("Auth error:", error)
+      let message = "An unexpected error occurred. Please try again."
+      
+      if (error.code === 'auth/invalid-credential') {
+        message = "Invalid email or security PIN. Please check your credentials."
+      } else if (error.code === 'auth/email-already-in-use') {
+        message = "This email is already registered. Please login instead."
+      } else if (error.code === 'auth/weak-password') {
+        message = "The security PIN is too weak. Please use at least 6 characters."
+      }
+
+      toast({
+        variant: "destructive",
+        title: authMode === "login" ? "Login Failed" : "Registration Failed",
+        description: message,
+      })
+    } finally {
+      setAuthLoading(false)
+    }
   }
 
   const handleGuestLogin = () => {
@@ -117,7 +149,7 @@ export default function LandingPage() {
                 <Button 
                   size="lg" 
                   className="h-14 px-8 text-lg font-bold group shadow-xl shadow-primary/20 rounded-2xl flex-1"
-                  onClick={() => setView("login")}
+                  onClick={() => setView("auth")}
                 >
                   Access Staff Portal
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -151,11 +183,13 @@ export default function LandingPage() {
                 </button>
 
                 <div className="space-y-1">
-                  <h2 className="text-3xl font-headline font-bold tracking-tight">Staff Login</h2>
+                  <h2 className="text-3xl font-headline font-bold tracking-tight">
+                    {authMode === "login" ? "Staff Login" : "Staff Registration"}
+                  </h2>
                   <p className="text-sm text-muted-foreground italic">BioMedLink Secure Terminal v4.2</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleAuth} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Work Email</Label>
                     <div className="relative">
@@ -174,7 +208,7 @@ export default function LandingPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Security PIN</Label>
-                      <a href="#" className="text-xs text-primary font-bold hover:underline">Forgot?</a>
+                      {authMode === "login" && <a href="#" className="text-xs text-primary font-bold hover:underline">Forgot?</a>}
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -191,13 +225,31 @@ export default function LandingPage() {
                   </div>
                   <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20 rounded-xl" disabled={authLoading}>
                     {authLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : (
-                      <>
-                        <LogIn className="w-5 h-5 mr-2" />
-                        Enter Facility
-                      </>
+                      authMode === "login" ? (
+                        <>
+                          <LogIn className="w-5 h-5 mr-2" />
+                          Enter Facility
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-5 h-5 mr-2" />
+                          Create Account
+                        </>
+                      )
                     )}
                   </Button>
                 </form>
+
+                <div className="text-center">
+                  <button 
+                    onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}
+                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {authMode === "login" 
+                      ? "Need to create a new staff account? Register" 
+                      : "Already have an account? Login"}
+                  </button>
+                </div>
 
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[10px] leading-relaxed text-muted-foreground text-center">
