@@ -20,23 +20,44 @@ import {
   Microscope
 } from "lucide-react"
 import { aiTroubleshoot, type AITroubleshootingOutput } from "@/ai/flows/ai-troubleshooting-assistant-flow"
-import { equipment as mockEquipment } from "@/lib/mock-data"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function TroubleshootPage() {
+  const db = useFirestore()
+  const { user: currentUser } = useUser()
   const [problem, setProblem] = useState("")
   const [errorCode, setErrorCode] = useState("")
-  const [selectedEqId, setSelectedEqId] = useState("eq-102")
+  const [selectedEqId, setSelectedEqId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<AITroubleshootingOutput | null>(null)
 
+  // Check role
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !currentUser) return null
+    return doc(db, "userProfiles", currentUser.uid)
+  }, [db, currentUser])
+  const { data: profile } = useDoc(profileRef)
+
+  // Real-time Equipment
+  const equipmentQuery = useMemoFirebase(() => {
+    if (!db || !profile) return null
+    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
+    if (!staffRoles.includes(profile.role)) return null;
+    return collection(db, "equipment")
+  }, [db, profile])
+  const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
+
   const handleTroubleshoot = async () => {
-    if (!problem.trim()) return
+    if (!problem.trim() || !selectedEqId) return
     
     setIsLoading(true)
     try {
-      const eq = mockEquipment.find(e => e.id === selectedEqId) || mockEquipment[0]
+      const eq = equipment?.find(e => e.id === selectedEqId)
+      if (!eq) return
+
       const response = await aiTroubleshoot({
         equipmentId: eq.id,
         problemDescription: problem,
@@ -87,25 +108,31 @@ export default function TroubleshootPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Equipment Unit</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {mockEquipment.map(eq => (
-                      <div 
-                        key={eq.id}
-                        onClick={() => setSelectedEqId(eq.id)}
-                        className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                          selectedEqId === eq.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                           <Microscope className={`w-5 h-5 ${selectedEqId === eq.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                           <div className="flex flex-col">
-                             <span className="text-sm font-semibold">{eq.name}</span>
-                             <span className="text-[10px] text-muted-foreground font-mono">{eq.serialNumber}</span>
-                           </div>
+                  <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2">
+                    {isEqLoading ? (
+                      <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+                    ) : equipment && equipment.length > 0 ? (
+                      equipment.map(eq => (
+                        <div 
+                          key={eq.id}
+                          onClick={() => setSelectedEqId(eq.id)}
+                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                            selectedEqId === eq.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                             <Microscope className={`w-5 h-5 ${selectedEqId === eq.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                             <div className="flex flex-col">
+                               <span className="text-sm font-semibold">{eq.name}</span>
+                               <span className="text-[10px] text-muted-foreground font-mono">{eq.serialNumber}</span>
+                             </div>
+                          </div>
+                          {selectedEqId === eq.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
                         </div>
-                        {selectedEqId === eq.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center py-4">No equipment found.</p>
+                    )}
                   </div>
                 </div>
 
@@ -131,7 +158,7 @@ export default function TroubleshootPage() {
 
                 <Button 
                   className="w-full h-11 shadow-lg shadow-primary/20 gap-2" 
-                  disabled={isLoading || !problem}
+                  disabled={isLoading || !problem || !selectedEqId}
                   onClick={handleTroubleshoot}
                 >
                   {isLoading ? (
@@ -158,7 +185,7 @@ export default function TroubleshootPage() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <Badge className="bg-primary hover:bg-primary">AI DIAGNOSIS</Badge>
-                      <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Confidence: 94%</span>
+                      <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Analysis Complete</span>
                     </div>
                     <CardTitle className="text-2xl mt-2">{result.diagnosis}</CardTitle>
                   </CardHeader>

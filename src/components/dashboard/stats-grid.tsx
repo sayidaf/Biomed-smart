@@ -10,13 +10,28 @@ import {
   Loader2
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc } from "firebase/firestore"
 
 export function StatsGrid() {
   const db = useFirestore()
+  const { user: currentUser } = useUser()
   
-  const eqQuery = useMemoFirebase(() => db ? collection(db, "equipment") : null, [db])
+  // Get user profile first to ensure staff access
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !currentUser) return null
+    return doc(db, "userProfiles", currentUser.uid)
+  }, [db, currentUser])
+  const { data: profile } = useDoc(profileRef)
+
+  // Only query equipment if user is recognized as staff
+  const eqQuery = useMemoFirebase(() => {
+    if (!db || !profile) return null
+    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
+    if (!staffRoles.includes(profile.role)) return null;
+    return collection(db, "equipment")
+  }, [db, profile])
+  
   const { data: equipment, isLoading } = useCollection(eqQuery)
 
   const stats = [

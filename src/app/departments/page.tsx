@@ -42,10 +42,13 @@ export default function DepartmentsPage() {
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
+  // Conditional fetch based on profile existence/role
   const deptQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !profile) return null
+    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
+    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "departments")
-  }, [db])
+  }, [db, profile])
   const { data: departments, isLoading } = useCollection(deptQuery)
 
   const [formData, setFormData] = useState({
@@ -114,36 +117,40 @@ export default function DepartmentsPage() {
           <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {departments?.map((dept) => (
-              <Card key={dept.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
-                <div className="h-2 bg-primary/20 group-hover:bg-primary transition-colors" />
-                <CardHeader className="flex flex-row items-start justify-between pb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
-                      <Building2 className="w-6 h-6 text-primary" />
+            {departments && departments.length > 0 ? (
+              departments.map((dept) => (
+                <Card key={dept.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
+                  <div className="h-2 bg-primary/20 group-hover:bg-primary transition-colors" />
+                  <CardHeader className="flex flex-row items-start justify-between pb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
+                        <Building2 className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-headline">{dept.name}</CardTitle>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-lg font-headline">{dept.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-6 line-clamp-2 min-h-[40px]">
+                      {dept.description}
+                    </p>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="w-4 h-4 text-accent" />
+                        <span className="text-sm font-bold">Manage Assets</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
+                        Inventory
+                        <ChevronRight className="ml-1 w-4 h-4" />
+                      </Button>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-6 line-clamp-2 min-h-[40px]">
-                    {dept.description}
-                  </p>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="w-4 h-4 text-accent" />
-                      <span className="text-sm font-bold">Manage Assets</span>
-                    </div>
-                    <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
-                      Inventory
-                      <ChevronRight className="ml-1 w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <p className="col-span-full text-center text-muted-foreground py-10">No departments configured yet.</p>
+            )}
           </div>
         )}
       </div>

@@ -55,18 +55,22 @@ export default function EquipmentPage() {
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Real-time Equipment
+  // Real-time Equipment - Conditional on role
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !profile) return null
+    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
+    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "equipment")
-  }, [db])
+  }, [db, profile])
   const { data: equipment, isLoading } = useCollection(equipmentQuery)
 
-  // Real-time Departments for reference
+  // Real-time Departments for reference - Conditional on role
   const deptQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !profile) return null
+    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
+    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "departments")
-  }, [db])
+  }, [db, profile])
   const { data: departments } = useCollection(deptQuery)
 
   const [formData, setFormData] = useState({
