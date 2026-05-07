@@ -3,21 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * BIOMEDLINK SECURITY RULES - PROTOTYPING VERSION
-     *
-     * Core Philosophy:
-     * This ruleset enforces a Role-Based Access Control (RBAC) model combined with strict 
-     * user-ownership for profile management and troubleshooting sessions. The system is designed 
-     * for a hospital environment where access to equipment and logs is restricted based on 
-     * professional roles (Admin, Biomedical Engineer, Technician).
-     *
-     * Data Structure:
-     * - /userProfiles/{userId}: Private user data and system roles.
-     * - /departments/{departmentId}: Metadata about hospital sections.
-     * - /equipment/{equipmentId}: Central inventory of biomedical devices.
-     * - /equipment/.../maintenanceLogs: Detailed service history for specific equipment.
-     * - /equipment/.../aiTroubleshootingSessions: Interactive AI help sessions.
-     * - /publicEquipmentShowcase/{equipmentId}: Publicly accessible images/data for the landing page.
+     * BIOMEDLINK SECURITY RULES
+     * 
+     * Enforces Role-Based Access Control (RBAC).
+     * Note: getProfile() relies on the document ID matching request.auth.uid.
      */
 
     // --- GLOBAL HELPER FUNCTIONS ---
@@ -30,13 +19,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getProfile() {
-      // Ensure the user profile exists before attempting to read its data
-      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid));
+    // Helper to get the user's role from their UID-based profile
+    function getUserRole() {
+      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role;
     }
 
     function hasRole(role) {
-      return isSignedIn() && getProfile().data.role == role;
+      return isSignedIn() && exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && getUserRole() == role;
     }
 
     function isAdmin() {
@@ -44,73 +33,56 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return isAdmin() || hasRole('Biomedical Engineer') || hasRole('Technician');
+      return isSignedIn() && exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+             (getUserRole() == 'Admin' || getUserRole() == 'Biomedical Engineer' || getUserRole() == 'Technician');
     }
 
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Rules for UserProfile. Users can manage their own profile; Admins manage all.
-     * @path /userProfiles/{userId}
-     */
     match /userProfiles/{userId} {
+      // Allow user to get their own profile OR Admins to see all
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      // Allow create if user is creating their own profile OR if the requester is an Admin.
-      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
-      // Allow update if owner AND they are not changing their role. Admins can update any profile (including roles).
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      
+      // Allow listing profiles ONLY for Admins, 
+      // OR for users searching for their own email (for Auto-Link protocol)
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 10 && request.query.filters.email == request.auth.token.email);
+      
+      allow create: if (isSignedIn() && request.resource.data.id == userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Hospital departments. Read-only for staff, CRUD for Admins.
-     */
     match /departments/{departmentId} {
-      allow get, list: if isStaff();
+      allow get, list: if isSignedIn(); // Allow reading for all logged in staff
       allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Core Equipment collection.
-     */
     match /equipment/{equipmentId} {
       allow get, list: if isStaff();
-      allow create: if isStaff() && request.resource.data.id == equipmentId;
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /equipment/{equipmentId}/maintenanceLogs/{logId} {
+      allow get, list: if isStaff();
+      allow create: if isStaff();
       allow update: if isStaff();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Maintenance logs for equipment. 
-     */
-    match /equipment/{equipmentId}/maintenanceLogs/{logId} {
-      allow get, list: if isStaff();
-      allow create: if isStaff() && request.resource.data.equipmentId == equipmentId;
-      allow update: if isOwner(resource.data.performedById) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    /**
-     * @description AI Troubleshooting sessions records.
-     */
     match /equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId} {
       allow get, list: if isStaff();
-      allow create: if isStaff() && request.resource.data.equipmentId == equipmentId && request.resource.data.engineerId == request.auth.uid;
-      allow update: if isOwner(resource.data.engineerId) || isAdmin();
+      allow create: if isStaff();
+      allow update: if isStaff();
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
         allow get, list: if isStaff();
-        allow create: if isStaff() && request.resource.data.sessionId == sessionId && 
-                         (isOwner(get(/databases/$(database)/documents/equipment/$(equipmentId)/aiTroubleshootingSessions/$(sessionId)).data.engineerId) || isAdmin());
+        allow create: if isStaff();
         allow update, delete: if isAdmin();
       }
     }
 
-    /**
-     * @description Public mirror for landing page display.
-     */
     match /publicEquipmentShowcase/{equipmentId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();

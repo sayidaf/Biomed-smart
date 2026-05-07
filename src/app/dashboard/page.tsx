@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -59,13 +58,14 @@ export default function DashboardPage() {
   
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
-  // Auto-link logic: If profile is missing, search by email
+  // Auto-link logic: If profile is missing at the UID path, search by email
   useEffect(() => {
     const attemptAutoLink = async () => {
       if (!db || !user || isProfileLoading || profile || isLinking) return
 
       setIsLinking(true)
       try {
+        // Search for a document where email matches the current user
         const q = query(collection(db, "userProfiles"), where("email", "==", user.email))
         const querySnapshot = await getDocs(q)
         
@@ -74,17 +74,15 @@ export default function DashboardPage() {
           const data = existingDoc.data()
           
           if (existingDoc.id !== user.uid) {
-            // Found a pre-provisioned profile, link it to current UID
+            // Link existing profile data to the current System UID
             await setDoc(doc(db, "userProfiles", user.uid), {
               ...data,
               id: user.uid,
               updatedAt: serverTimestamp()
             })
             
-            // Clean up the temporary email-based doc if it exists
-            if (existingDoc.id === data.email) {
-              await deleteDoc(existingDoc.ref)
-            }
+            // Delete the old email-based or temporary ID record
+            await deleteDoc(existingDoc.ref)
             
             toast({
               title: "Profile Synchronized",
@@ -94,7 +92,7 @@ export default function DashboardPage() {
           }
         }
       } catch (error) {
-        console.error("Auto-link failed:", error)
+        console.error("Auto-link protocol failed:", error)
       } finally {
         setIsLinking(false)
       }
@@ -173,9 +171,9 @@ export default function DashboardPage() {
             <div className="text-[11px] space-y-2 text-muted-foreground">
               <p>1. Open Firebase Console &gt; Firestore</p>
               <p>2. Navigate to collection: <strong>userProfiles</strong></p>
-              <p>3. Create document with ID: <strong>(Paste your UID from above)</strong></p>
+              <p>3. Add document with ID: <strong>(Paste your UID from above)</strong></p>
               <p>4. Add string field: <strong>role</strong> (e.g., "Admin" or "Biomedical Engineer")</p>
-              <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong></p>
+              <p>5. Add fields: <strong>firstName</strong>, <strong>lastName</strong>, <strong>email</strong>, <strong>id</strong></p>
             </div>
           </div>
           <div className="flex flex-col gap-2">
