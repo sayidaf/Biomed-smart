@@ -9,7 +9,6 @@ import {
   Menu,
   ShieldCheck,
   Zap,
-  Loader2,
   Mail,
   CheckCircle2,
   AlertCircle,
@@ -21,14 +20,14 @@ import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { useUser, useFirestore, useMemoFirebase, useDoc, useCollection } from "@/firebase"
-import { doc, query, collection, where, limit, getDocs, setDoc, deleteDoc, serverTimestamp, addDoc, updateDoc } from "firebase/firestore"
+import { doc, query, collection, where, limit, getDocs, setDoc, deleteDoc, serverTimestamp, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { differenceInDays, parseISO } from "date-fns"
+import { differenceInDays, parseISO, startOfDay } from "date-fns"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser()
@@ -47,7 +46,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!db || !user) return null
     return query(
       collection(db, "userProfiles", user.uid, "notifications"),
-      where("status", "==", "UNREAD")
+      where("status", "==", "UNREAD"),
+      limit(10)
     )
   }, [db, user])
   const { data: notifications } = useCollection(notificationsQuery)
@@ -64,28 +64,53 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const checkServiceDates = async () => {
       if (!db || !user || !allEquipment || !profile) return
 
-      const today = new Date()
+      const today = startOfDay(new Date())
       
       for (const eq of allEquipment) {
         if (!eq.nextServiceDate) continue
         
-        const nextService = parseISO(eq.nextServiceDate)
+        const nextService = startOfDay(parseISO(eq.nextServiceDate))
         const daysDiff = differenceInDays(nextService, today)
 
-        // If service is due within 7 days and no notification exists for this equipment
-        if (daysDiff <= 7 && daysDiff >= -1) {
+        // Case: Service is due Today
+        if (daysDiff === 0) {
+          const todayNotifId = `service-today-${eq.id}-${eq.nextServiceDate}`
+          const todayNotifRef = doc(db, "userProfiles", user.uid, "notifications", todayNotifId)
+          
+          const existingToday = await getDocs(query(collection(db, "userProfiles", user.uid, "notifications"), where("id", "==", todayNotifId)))
+          
+          if (existingToday.empty) {
+            await setDoc(todayNotifRef, {
+              id: todayNotifId,
+              userId: user.uid,
+              title: "CRITICAL: Service Due Today",
+              message: `Asset ${eq.name} (SN: ${eq.serialNumber}) reached its maintenance deadline TODAY. System has initiated final email alert sequence to ${user.email}.`,
+              type: "SERVICE_DUE",
+              status: "UNREAD",
+              equipmentId: eq.id,
+              createdAt: serverTimestamp()
+            })
+            
+            toast({
+              variant: "destructive",
+              title: "Critical Service Alert",
+              description: `Maintenance for ${eq.name} is due TODAY. Final email notification sent.`,
+            })
+          }
+        } 
+        // Case: Service is due within 7 days
+        else if (daysDiff <= 7 && daysDiff > 0) {
           const notificationId = `service-due-${eq.id}-${eq.nextServiceDate}`
           const notifRef = doc(db, "userProfiles", user.uid, "notifications", notificationId)
           
-          // Check if already exists to prevent duplicate notifications
-          const existing = await getDocs(query(collection(db, "userProfiles", user.uid, "notifications"), where("equipmentId", "==", eq.id), where("type", "==", "SERVICE_DUE"), where("status", "==", "UNREAD")))
+          const existing = await getDocs(query(collection(db, "userProfiles", user.uid, "notifications"), where("id", "==", notificationId)))
           
           if (existing.empty) {
             await setDoc(notifRef, {
               id: notificationId,
               userId: user.uid,
               title: "Service Protocol Alert",
-              message: `Asset ${eq.name} (SN: ${eq.serialNumber}) is due for service on ${eq.nextServiceDate}. Advance Email Dispatch: COMPLETED.`,
+              message: `Asset ${eq.name} (SN: ${eq.serialNumber}) is due for service in ${daysDiff} days. Advance Email Dispatch: COMPLETED.`,
               type: "SERVICE_DUE",
               status: "UNREAD",
               equipmentId: eq.id,
@@ -94,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             
             toast({
               title: "Service Alert",
-              description: `Automated warning: ${eq.name} requires maintenance protocol. Email alert sent to your registry address.`,
+              description: `Automated warning: ${eq.name} requires maintenance protocol soon.`,
             })
           }
         }

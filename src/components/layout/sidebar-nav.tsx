@@ -14,7 +14,8 @@ import {
   BrainCircuit,
   LogOut,
   Users,
-  Lock
+  Lock,
+  Bell
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth, useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
@@ -23,6 +24,7 @@ import { doc } from "firebase/firestore"
 
 const staffNavItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Departments', href: '/departments', icon: Building2 },
   { name: 'Equipment', href: '/equipment', icon: Stethoscope },
   { name: 'AI Troubleshoot', href: '/troubleshoot', icon: BrainCircuit },
@@ -35,6 +37,7 @@ const staffNavItems = [
 
 const adminNavItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Staff Management', href: '/users', icon: Users },
 ]
 
