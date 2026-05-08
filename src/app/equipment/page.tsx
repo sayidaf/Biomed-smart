@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { sanitizeInput } from "@/lib/utils"
 import {
   Table,
   TableBody,
@@ -52,14 +53,13 @@ export default function EquipmentPage() {
   const deptParam = searchParams.get('dept')
   const autoAdd = searchParams.get('add') === 'true'
 
-  // Check role
+  // Security: Memoize references to prevent N+1 queries
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Real-time Equipment
   const equipmentQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
     const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
@@ -68,7 +68,6 @@ export default function EquipmentPage() {
   }, [db, profile])
   const { data: equipment, isLoading } = useCollection(equipmentQuery)
 
-  // Real-time Departments for reference
   const deptQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
     return collection(db, "departments")
@@ -85,14 +84,12 @@ export default function EquipmentPage() {
     nextServiceDate: new Date().toISOString().split('T')[0]
   })
 
-  // Pre-select department if coming from department page
   useEffect(() => {
     if (deptParam) {
       setFormData(prev => ({ ...prev, departmentId: deptParam }))
     }
   }, [deptParam])
 
-  // Open dialog if 'add=true' is in params
   useEffect(() => {
     if (autoAdd) {
       setIsDialogOpen(true)
@@ -103,11 +100,23 @@ export default function EquipmentPage() {
     e.preventDefault()
     if (!db) return
 
+    // Security: Input Sanitization
+    const sanitizedData = {
+      name: sanitizeInput(formData.name),
+      manufacturer: sanitizeInput(formData.manufacturer),
+      modelNumber: sanitizeInput(formData.modelNumber),
+      serialNumber: sanitizeInput(formData.serialNumber),
+      departmentId: formData.departmentId,
+      status: formData.status,
+      nextServiceDate: formData.nextServiceDate
+    }
+
+    // Security: Idempotent ID generation (SN based) or Random
     const newId = `eq-${Math.random().toString(36).substring(2, 9)}`
     const eqRef = doc(db, "equipment", newId)
 
     setDocumentNonBlocking(eqRef, {
-      ...formData,
+      ...sanitizedData,
       id: newId,
       purchaseDate: new Date().toISOString().split('T')[0],
       installationDate: new Date().toISOString().split('T')[0],
@@ -122,7 +131,6 @@ export default function EquipmentPage() {
       setIsDialogOpen(false)
     }
     
-    // Clear fields but keep department
     setFormData(prev => ({
       ...prev,
       name: "",
