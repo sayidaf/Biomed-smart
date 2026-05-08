@@ -1,4 +1,3 @@
-
 "use client"
 
 import { SidebarNav } from "./sidebar-nav"
@@ -8,25 +7,74 @@ import {
   Search, 
   Menu,
   ShieldCheck,
-  Zap
+  Zap,
+  Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
-import { doc } from "firebase/firestore"
+import { doc, query, collection, where, limit, getDocs, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
   const db = useFirestore()
+  const { toast } = useToast()
+  const [isLinking, setIsLinking] = useState(false)
 
   const profileRef = useMemoFirebase(() => {
     if (!db || !user) return null
     return doc(db, "userProfiles", user.uid)
   }, [db, user])
-  const { data: profile } = useDoc(profileRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
+
+  // Global Auto-link logic: ensures profile matches UID
+  useEffect(() => {
+    const attemptAutoLink = async () => {
+      if (!db || !user || isProfileLoading || profile || isLinking || !user.email) return
+
+      setIsLinking(true)
+      try {
+        const q = query(
+          collection(db, "userProfiles"), 
+          where("email", "==", user.email),
+          limit(1)
+        )
+        const querySnapshot = await getDocs(q)
+        
+        if (!querySnapshot.empty) {
+          const existingDoc = querySnapshot.docs[0]
+          const data = existingDoc.data()
+          
+          if (existingDoc.id !== user.uid) {
+            await setDoc(doc(db, "userProfiles", user.uid), {
+              ...data,
+              id: user.uid,
+              updatedAt: serverTimestamp()
+            })
+            await deleteDoc(existingDoc.ref)
+            
+            toast({
+              title: "Profile Synchronized",
+              description: "Your terminal record has been linked to your system identity.",
+            })
+            window.location.reload()
+          }
+        }
+      } catch (error) {
+        // Silent fail - might be standard handshake protocol delay
+      } finally {
+        setIsLinking(false)
+      }
+    }
+
+    if (!isProfileLoading && !profile && user?.email) {
+      attemptAutoLink()
+    }
+  }, [db, user, isProfileLoading, profile, isLinking, toast])
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-body">
