@@ -11,10 +11,33 @@ import {
   TrendingUp, 
   PieChart, 
   BarChart3,
-  Search
+  Search,
+  BrainCircuit,
+  Wrench,
+  Loader2,
+  Calendar
 } from "lucide-react"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc, query, collectionGroup, getDocs } from "firebase/firestore"
+import { Badge } from "@/components/ui/badge"
 
 export default function ReportsPage() {
+  const db = useFirestore()
+  const { user } = useUser()
+
+  // We use collectionGroup to fetch all sessions/logs across all equipment for the report
+  const sessionsQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return query(collectionGroup(db, "aiTroubleshootingSessions"))
+  }, [db])
+  const { data: sessions, isLoading: isSessionsLoading } = useCollection(sessionsQuery)
+
+  const logsQuery = useMemoFirebase(() => {
+    if (!db) return null
+    return query(collectionGroup(db, "maintenanceLogs"))
+  }, [db])
+  const { data: logs, isLoading: isLogsLoading } = useCollection(logsQuery)
+
   return (
     <AppShell>
       <div className="space-y-8">
@@ -28,7 +51,7 @@ export default function ReportsPage() {
           </div>
           <Button className="shadow-lg shadow-primary/20 gap-2">
             <Plus className="w-4 h-4" />
-            Generate New Report
+            Generate Custom Audit
           </Button>
         </div>
 
@@ -82,33 +105,78 @@ export default function ReportsPage() {
           </Card>
         </div>
 
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle>Recent Documents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: 'Monthly Maintenance Compliance - April 2026', date: 'May 01, 2026', size: '2.4 MB' },
-                { name: 'Radiology Equipment Safety Audit', date: 'April 15, 2026', size: '1.1 MB' },
-                { name: 'Quarterly Bio-Med Inventory Report', date: 'April 02, 2026', size: '5.8 MB' },
-              ].map((doc, i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <FileText className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <h4 className="font-semibold text-sm">{doc.name}</h4>
-                      <p className="text-xs text-muted-foreground">{doc.date} • {doc.size}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BrainCircuit className="w-5 h-5 text-accent" />
+                Archived AI Protocols
+              </CardTitle>
+              <CardDescription>Recently saved AI troubleshooting repair guides.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {isSessionsLoading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                ) : sessions && sessions.length > 0 ? (
+                  sessions.map((session: any) => (
+                    <div key={session.id} className="p-4 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-bold text-sm truncate max-w-[200px]">{session.problemSummary}</h4>
+                        <Badge variant="secondary" className="text-[10px]">AI VERIFIED</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mb-3">{session.resolutionSummary}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                          {session.createdAt?.toDate ? session.createdAt.toDate().toLocaleDateString() : 'Recent'}
+                        </span>
+                        <Button variant="ghost" size="sm" className="h-7 text-[10px]">View Detail</Button>
+                      </div>
                     </div>
-                  </div>
-                  <Button variant="ghost" size="icon">
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-10">No saved AI sessions found.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-primary" />
+                Maintenance History
+              </CardTitle>
+              <CardDescription>Audit of performed preventive and corrective services.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                 {isLogsLoading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                ) : logs && logs.length > 0 ? (
+                  logs.map((log: any) => (
+                    <div key={log.id} className="p-4 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm">Routine Service</h4>
+                          <Badge variant="outline" className="text-[10px]">SLA OK</Badge>
+                        </div>
+                        <span className="text-xs font-bold text-primary">{log.nextServiceDate}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">Performed by: {log.engineerName || 'Staff Engineer'}</p>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground">Log Date: {log.serviceDate}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-10">No maintenance logs found.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AppShell>
   )

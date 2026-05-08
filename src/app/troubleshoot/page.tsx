@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -18,16 +19,21 @@ import {
   Microscope,
   Building2,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Save,
+  Trash2
 } from "lucide-react"
 import { aiTroubleshoot, type AITroubleshootingOutput } from "@/ai/flows/ai-troubleshooting-assistant-flow"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, query, where } from "firebase/firestore"
+import { collection, doc, query, where, serverTimestamp } from "firebase/firestore"
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 export default function TroubleshootPage() {
   const db = useFirestore()
   const { user: currentUser } = useUser()
+  const { toast } = useToast()
   
   // Workflow State
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -38,6 +44,7 @@ export default function TroubleshootPage() {
   
   // Results State
   const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [result, setResult] = useState<AITroubleshootingOutput | null>(null)
 
   // Auth Context
@@ -89,6 +96,34 @@ export default function TroubleshootPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSaveProtocol = async () => {
+    if (!db || !result || !selectedEqId) return
+    setIsSaving(true)
+
+    const sessionData = {
+      equipmentId: selectedEqId,
+      engineerId: currentUser?.uid,
+      startTime: serverTimestamp(),
+      problemSummary: problem,
+      resolutionSummary: result.diagnosis,
+      protocol: result,
+      status: 'SAVED',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }
+
+    const sessionsRef = collection(db, "equipment", selectedEqId, "aiTroubleshootingSessions")
+    addDocumentNonBlocking(sessionsRef, sessionData)
+
+    toast({
+      title: "Protocol Archived",
+      description: "Repair guidance has been saved to the equipment history and compliance reports.",
+    })
+    
+    setIsSaving(false)
+    resetFlow()
   }
 
   const selectedDept = departments?.find(d => d.id === selectedDeptId)
@@ -339,8 +374,18 @@ export default function TroubleshootPage() {
                 </Card>
 
                 <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
-                  <Button variant="outline" className="w-full sm:w-auto">Print Protocol</Button>
-                  <Button className="w-full sm:w-auto shadow-lg shadow-primary/20">Create Service Ticket</Button>
+                  <Button variant="outline" onClick={resetFlow} className="gap-2">
+                    <Trash2 className="w-4 h-4" />
+                    Discard Protocol
+                  </Button>
+                  <Button 
+                    className="shadow-lg shadow-primary/20 gap-2" 
+                    onClick={handleSaveProtocol}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Save to Archive
+                  </Button>
                 </div>
               </div>
             ) : (

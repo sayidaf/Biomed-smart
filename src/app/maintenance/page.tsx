@@ -1,191 +1,289 @@
 
 "use client"
 
+import { useState, useMemo } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { 
-  Calendar, 
-  Clock, 
+  Calendar as CalendarIcon, 
   Wrench, 
-  AlertTriangle, 
+  ChevronRight,
+  ArrowLeft,
+  Building2,
+  Monitor,
   CheckCircle2,
-  Filter,
-  FileText,
+  Clock,
+  User,
   Loader2
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc } from "firebase/firestore"
+import { collection, doc, serverTimestamp, query, where, addDoc } from "firebase/firestore"
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { useToast } from "@/hooks/use-toast"
+import { format, addMonths } from "date-fns"
 
 export default function MaintenancePage() {
   const db = useFirestore()
   const { user: currentUser } = useUser()
+  const { toast } = useToast()
 
-  // Get user profile first to ensure staff access
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null)
+  const [selectedEqId, setSelectedEqId] = useState<string | null>(null)
+  
+  const [lastServiceDate, setLastServiceDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [interval, setInterval] = useState("6")
+  const [engineerName, setEngineerName] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Auth/Profile
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Real-time Equipment
-  const equipmentQuery = useMemoFirebase(() => {
+  // Data Fetching
+  const departmentsQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
-    return collection(db, "equipment")
+    return collection(db, "departments")
   }, [db, profile])
-  
-  const { data: equipment, isLoading } = useCollection(equipmentQuery)
+  const { data: departments, isLoading: isDeptsLoading } = useCollection(departmentsQuery)
 
-  const now = new Date()
-  const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const equipmentQuery = useMemoFirebase(() => {
+    if (!db || !profile || !selectedDeptId) return null
+    return query(collection(db, "equipment"), where("departmentId", "==", selectedDeptId))
+  }, [db, profile, selectedDeptId])
+  const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
-  const overdueCount = equipment?.filter(e => e.nextServiceDate && new Date(e.nextServiceDate) < now).length || 0
-  const upcomingCount = equipment?.filter(e => {
-    if (!e.nextServiceDate) return false
-    const next = new Date(e.nextServiceDate)
-    return next > now && next < thirtyDaysLater
-  }).length || 0
+  const selectedDept = departments?.find(d => d.id === selectedDeptId)
+  const selectedEq = equipment?.find(e => e.id === selectedEqId)
+
+  const nextServiceDate = useMemo(() => {
+    if (!lastServiceDate) return ""
+    try {
+      const date = new Date(lastServiceDate)
+      const next = addMonths(date, parseInt(interval))
+      return format(next, 'yyyy-MM-dd')
+    } catch (e) {
+      return ""
+    }
+  }, [lastServiceDate, interval])
+
+  const handleSaveService = async () => {
+    if (!db || !selectedEq || !engineerName) return
+    setIsSaving(true)
+
+    const logData = {
+      equipmentId: selectedEq.id,
+      performedById: currentUser?.uid || "unknown",
+      engineerName: engineerName,
+      logType: 'Preventive Maintenance',
+      serviceDate: lastServiceDate,
+      description: `Routine service performed. Interval: ${interval} months.`,
+      nextServiceDate: nextServiceDate,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }
+
+    // Save to Maintenance Logs
+    const logsRef = collection(db, "equipment", selectedEq.id, "maintenanceLogs")
+    addDocumentNonBlocking(logsRef, logData)
+
+    // Update Equipment Master Record
+    const eqRef = doc(db, "equipment", selectedEq.id)
+    updateDocumentNonBlocking(eqRef, {
+      lastServiceDate: lastServiceDate,
+      nextServiceDate: nextServiceDate,
+      updatedAt: serverTimestamp()
+    })
+
+    toast({
+      title: "Maintenance Logged",
+      description: `Service history updated for ${selectedEq.name}. Next service: ${nextServiceDate}`,
+    })
+
+    setIsSaving(false)
+    setStep(1)
+    setSelectedDeptId(null)
+    setSelectedEqId(null)
+    setEngineerName("")
+  }
 
   return (
     <AppShell>
-      <div className="space-y-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold text-primary">Preventive Maintenance</h1>
-            <p className="text-muted-foreground mt-1">Schedule and monitor routine service activities to ensure zero downtime.</p>
+            <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
+              <Wrench className="w-8 h-8 text-primary" />
+              Service Terminal
+            </h1>
+            <p className="text-muted-foreground mt-1">Professional maintenance scheduling and compliance tracking.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
+          {step > 1 && (
+            <Button variant="ghost" onClick={() => setStep((s) => (s - 1) as any)} className="gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back
             </Button>
-            <Button size="sm" className="shadow-lg shadow-primary/20">
-              <Calendar className="w-4 h-4 mr-2" />
-              Service Calendar
-            </Button>
-          </div>
+          )}
         </div>
 
-        {isLoading ? (
-          <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
-        ) : (
-          <>
-            {/* Maintenance Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="border-none shadow-sm bg-destructive/10">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-destructive uppercase tracking-wider mb-1">Overdue Service</p>
-                    <h3 className="text-3xl font-headline font-bold text-destructive">{overdueCount}</h3>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-destructive/20 flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-destructive" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-none shadow-sm bg-orange-100/50">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-orange-600 uppercase tracking-wider mb-1">Due (30 Days)</p>
-                    <h3 className="text-3xl font-headline font-bold text-orange-600">{upcomingCount}</h3>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-orange-200 flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-orange-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm bg-green-100/50">
-                <CardContent className="p-6 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-green-700 uppercase tracking-wider mb-1">Completed (MTD)</p>
-                    <h3 className="text-3xl font-headline font-bold text-green-700">0</h3>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-green-200 flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-green-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-4">
-                 <div className="flex items-center justify-between mb-4">
-                   <h2 className="text-xl font-headline font-bold">Maintenance Queue</h2>
-                 </div>
-                 
-                 {equipment && equipment.length > 0 ? (
-                   equipment.map((eq) => {
-                     const isOverdue = eq.nextServiceDate && new Date(eq.nextServiceDate) < now
-                     return (
-                       <Card key={eq.id} className="border-none shadow-sm hover:shadow-md transition-shadow group overflow-hidden">
-                         <CardContent className="p-0 flex flex-col md:flex-row items-stretch">
-                           <div className="w-full md:w-48 bg-muted/30 flex flex-col items-center justify-center p-4">
-                             <div className="text-xs font-bold uppercase text-muted-foreground mb-1">Next Service</div>
-                             <div className="text-xl font-headline font-bold">
-                               {eq.nextServiceDate ? new Date(eq.nextServiceDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                             </div>
-                           </div>
-                           <div className="flex-1 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                             <div>
-                               <div className="flex items-center gap-2 mb-1">
-                                 <h4 className="font-bold text-lg group-hover:text-primary transition-colors">{eq.name}</h4>
-                                 <Badge variant={isOverdue ? 'destructive' : 'secondary'} className="text-[10px]">
-                                   {isOverdue ? 'Overdue' : 'Scheduled'}
-                                 </Badge>
-                               </div>
-                               <p className="text-sm text-muted-foreground">{eq.manufacturer} • Serial: {eq.serialNumber}</p>
-                             </div>
-                             <div className="flex flex-col sm:flex-row gap-2">
-                               <Button variant="outline" size="sm">Reschedule</Button>
-                               <Button size="sm" className="gap-2">
-                                 <Wrench className="w-4 h-4" />
-                                 Start Service
-                               </Button>
-                             </div>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     )
-                   })
-                 ) : (
-                   <p className="text-muted-foreground text-center py-10">No equipment in maintenance queue.</p>
-                 )}
-              </div>
-
-              <div className="space-y-6">
-                <Card className="border-none shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Service Reminders</CardTitle>
-                    <CardDescription>Automated system notifications</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-xs text-muted-foreground">No active reminders.</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-none shadow-sm bg-primary text-primary-foreground">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                        <FileText className="w-5 h-5" />
+        <div className="grid grid-cols-1 gap-6">
+          {/* Step 1: Dept Selection */}
+          {step === 1 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">Step 1: Select Facility Sector</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {isDeptsLoading ? (
+                  <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                ) : departments?.map(dept => (
+                  <Card 
+                    key={dept.id} 
+                    className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group"
+                    onClick={() => { setSelectedDeptId(dept.id); setStep(2); }}
+                  >
+                    <CardContent className="p-6 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                        <Building2 className="w-6 h-6" />
                       </div>
-                      <h3 className="text-lg font-headline font-bold">Generate Reports</h3>
-                    </div>
-                    <p className="text-sm opacity-90 mb-6">Create PDF maintenance compliance reports for hospital administration and audit.</p>
-                    <Button variant="secondary" className="w-full font-bold">
-                      Download Monthly Report
-                    </Button>
-                  </CardContent>
-                </Card>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg">{dept.name}</h3>
+                        <p className="text-xs text-muted-foreground">Select to view assets</p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
-          </>
-        )}
+          )}
+
+          {/* Step 2: Equipment Selection */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-primary font-bold uppercase tracking-wider">
+                <Building2 className="w-4 h-4" />
+                Sector: {selectedDept?.name}
+              </div>
+              <h2 className="text-xl font-bold">Step 2: Choose Equipment</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {isEqLoading ? (
+                  <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                ) : equipment && equipment.length > 0 ? (
+                  equipment.map(eq => (
+                    <Card 
+                      key={eq.id} 
+                      className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group"
+                      onClick={() => { setSelectedEqId(eq.id); setStep(3); }}
+                    >
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                          <Monitor className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-sm">{eq.name}</h3>
+                          <Badge variant="outline" className="text-[10px]">{eq.serialNumber}</Badge>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <p className="text-center py-10 text-muted-foreground col-span-full">No equipment registered in this department.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Service Form */}
+          {step === 3 && selectedEq && (
+            <Card className="border-none shadow-lg overflow-hidden">
+              <div className="h-2 bg-primary" />
+              <CardHeader className="bg-muted/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge className="bg-primary/20 text-primary border-primary/20">MAINTENANCE PROTOCOL</Badge>
+                </div>
+                <CardTitle className="text-2xl">{selectedEq.name}</CardTitle>
+                <CardDescription>
+                  SN: {selectedEq.serialNumber} • Location: {selectedDept?.name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">1. Last Service Date</Label>
+                      <div className="relative">
+                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input 
+                          type="date" 
+                          className="pl-10 h-12"
+                          value={lastServiceDate}
+                          onChange={(e) => setLastServiceDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">2. Service Interval</Label>
+                      <select 
+                        className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                        value={interval}
+                        onChange={(e) => setInterval(e.target.value)}
+                      >
+                        <option value="1">1 Month (High Frequency)</option>
+                        <option value="3">3 Months (Quarterly)</option>
+                        <option value="6">6 Months (Bi-Annual)</option>
+                        <option value="12">12 Months (Annual)</option>
+                        <option value="24">24 Months (Long Term)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">3. Serviced By (Lead Engineer)</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="Full Name of Engineer" 
+                          className="pl-10 h-12"
+                          value={engineerName}
+                          onChange={(e) => setEngineerName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col items-center justify-center text-center">
+                      <Clock className="w-8 h-8 text-primary mb-2 opacity-50" />
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground mb-1 tracking-widest">Calculated Next Service</span>
+                      <span className="text-2xl font-headline font-bold text-primary">
+                        {nextServiceDate ? format(new Date(nextServiceDate), 'MMMM dd, yyyy') : '---'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
+                  <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>Discard Changes</Button>
+                  <Button 
+                    className="flex-1 h-12 font-bold shadow-lg shadow-primary/20 gap-2" 
+                    disabled={!engineerName || isSaving}
+                    onClick={handleSaveService}
+                  >
+                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    Confirm & Update Asset Record
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </AppShell>
   )
