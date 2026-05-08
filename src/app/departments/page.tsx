@@ -10,11 +10,14 @@ import {
   Stethoscope, 
   ChevronRight,
   Loader2,
-  Info
+  Info,
+  Edit2,
+  Trash2,
+  AlertTriangle
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import {
   Dialog,
   DialogContent,
@@ -24,10 +27,22 @@ import {
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 const DEPARTMENT_PRESETS: Record<string, string> = {
   "ICU": "Critical care unit specializing in life support and intensive monitoring for patients with life-threatening illnesses or injuries.",
@@ -43,7 +58,12 @@ const DEPARTMENT_PRESETS: Record<string, string> = {
 export default function DepartmentsPage() {
   const db = useFirestore()
   const { user: currentUser } = useUser()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const { toast } = useToast()
+  
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [deptToDelete, setDeptToDelete] = useState<any | null>(null)
+  const [editingDept, setEditingDept] = useState<any | null>(null)
 
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
@@ -62,16 +82,18 @@ export default function DepartmentsPage() {
     description: ""
   })
 
-  // Prefill logic
+  // Prefill logic for Add
   useEffect(() => {
-    const trimmedName = formData.name.trim()
-    const presetKey = Object.keys(DEPARTMENT_PRESETS).find(
-      key => trimmedName.toLowerCase().includes(key.toLowerCase())
-    )
-    if (presetKey && !formData.description) {
-      setFormData(prev => ({ ...prev, description: DEPARTMENT_PRESETS[presetKey] }))
+    if (isAddOpen) {
+      const trimmedName = formData.name.trim()
+      const presetKey = Object.keys(DEPARTMENT_PRESETS).find(
+        key => trimmedName.toLowerCase().includes(key.toLowerCase())
+      )
+      if (presetKey && !formData.description) {
+        setFormData(prev => ({ ...prev, description: DEPARTMENT_PRESETS[presetKey] }))
+      }
     }
-  }, [formData.name])
+  }, [formData.name, isAddOpen])
 
   const handleAddDept = (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,11 +109,45 @@ export default function DepartmentsPage() {
       updatedAt: serverTimestamp()
     }, { merge: true })
 
-    setIsDialogOpen(false)
+    setIsAddOpen(false)
     setFormData({ name: "", description: "" })
+    toast({ title: "Department Created", description: "Registry initialized successfully." })
   }
 
-  const canAddDept = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
+  const handleEditClick = (dept: any) => {
+    setEditingDept(dept)
+    setFormData({
+      name: dept.name,
+      description: dept.description || ""
+    })
+    setIsEditOpen(true)
+  }
+
+  const handleUpdateDept = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!db || !editingDept) return
+
+    const deptRef = doc(db, "departments", editingDept.id)
+    updateDocumentNonBlocking(deptRef, {
+      ...formData,
+      updatedAt: serverTimestamp()
+    })
+
+    setIsEditOpen(false)
+    setEditingDept(null)
+    setFormData({ name: "", description: "" })
+    toast({ title: "Registry Updated", description: "Department details synchronized." })
+  }
+
+  const confirmDelete = () => {
+    if (!db || !deptToDelete) return
+    const deptRef = doc(db, "departments", deptToDelete.id)
+    deleteDocumentNonBlocking(deptRef)
+    setDeptToDelete(null)
+    toast({ variant: "destructive", title: "Sector Purged", description: "Department removed from registry." })
+  }
+
+  const canManage = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
 
   return (
     <AppShell>
@@ -101,8 +157,8 @@ export default function DepartmentsPage() {
             <h1 className="text-3xl font-headline font-bold text-primary">Hospital Departments</h1>
             <p className="text-muted-foreground mt-1">Organize and manage equipment inventory by facility location.</p>
           </div>
-          {canAddDept && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          {canManage && (
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="shadow-lg shadow-primary/20">
                   <Plus className="w-4 h-4 mr-2" />
@@ -135,7 +191,7 @@ export default function DepartmentsPage() {
                     <Textarea 
                       value={formData.description} 
                       onChange={e => setFormData({...formData, description: e.target.value})} 
-                      placeholder="Specify the medical scope or technical focus of this department..." 
+                      placeholder="Specify the medical scope or technical focus..." 
                       className="min-h-[100px]"
                     />
                   </div>
@@ -153,13 +209,40 @@ export default function DepartmentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {departments && departments.length > 0 ? (
-              departments.map((dept) => (
-                <Card key={dept.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
+              departments.map((dept, index) => (
+                <Card key={dept.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
                   <div className="h-2 bg-primary/20 group-hover:bg-primary transition-colors" />
+                  <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {canManage && (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditClick(dept)}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeptToDelete(dept)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
-                        <Building2 className="w-6 h-6 text-primary" />
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-primary" />
+                        </div>
+                        <Badge className="absolute -top-2 -left-2 h-5 w-5 p-0 flex items-center justify-center bg-primary text-[10px] border-2 border-background">
+                          {index + 1}
+                        </Badge>
                       </div>
                       <div>
                         <CardTitle className="text-lg font-headline">{dept.name}</CardTitle>
@@ -183,7 +266,7 @@ export default function DepartmentsPage() {
                           </Button>
                         </Link>
                       </div>
-                      {canAddDept && (
+                      {canManage && (
                         <Link href={`/equipment?dept=${dept.id}&add=true`} className="block w-full">
                           <Button variant="outline" size="sm" className="w-full border-dashed">
                             <Plus className="w-3 h-3 mr-2" />
@@ -205,6 +288,58 @@ export default function DepartmentsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Department</DialogTitle>
+            <DialogDescription>Modify the details for the <strong>{editingDept?.name}</strong> sector.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateDept} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Department Name</Label>
+              <Input 
+                value={formData.name} 
+                onChange={e => setFormData({...formData, name: e.target.value})} 
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea 
+                value={formData.description} 
+                onChange={e => setFormData({...formData, description: e.target.value})} 
+                className="min-h-[100px]"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="w-full">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deptToDelete} onOpenChange={(open) => !open && setDeptToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Purge Sector?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{deptToDelete?.name}</strong>? This action will not delete associated equipment but will disconnect them from this sector.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abort</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirm Purge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   )
 }
