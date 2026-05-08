@@ -1,7 +1,8 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,7 +14,8 @@ import {
   Calendar,
   ChevronRight,
   Printer,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
@@ -37,12 +39,18 @@ import {
   DialogDescription
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function EquipmentPage() {
   const db = useFirestore()
+  const searchParams = useSearchParams()
   const { user: currentUser } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [addAnother, setAddAnother] = useState(false)
+
+  const deptParam = searchParams.get('dept')
+  const autoAdd = searchParams.get('add') === 'true'
 
   // Check role
   const profileRef = useMemoFirebase(() => {
@@ -51,7 +59,7 @@ export default function EquipmentPage() {
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Real-time Equipment - Conditional on role
+  // Real-time Equipment
   const equipmentQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
     const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
@@ -72,10 +80,24 @@ export default function EquipmentPage() {
     manufacturer: "",
     modelNumber: "",
     serialNumber: "",
-    departmentId: "",
+    departmentId: deptParam || "",
     status: "OPERATIONAL",
     nextServiceDate: new Date().toISOString().split('T')[0]
   })
+
+  // Pre-select department if coming from department page
+  useEffect(() => {
+    if (deptParam) {
+      setFormData(prev => ({ ...prev, departmentId: deptParam }))
+    }
+  }, [deptParam])
+
+  // Open dialog if 'add=true' is in params
+  useEffect(() => {
+    if (autoAdd) {
+      setIsDialogOpen(true)
+    }
+  }, [autoAdd])
 
   const handleAddEquipment = (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,22 +118,25 @@ export default function EquipmentPage() {
       updatedAt: serverTimestamp()
     }, { merge: true })
 
-    setIsDialogOpen(false)
-    setFormData({
+    if (!addAnother) {
+      setIsDialogOpen(false)
+    }
+    
+    // Clear fields but keep department
+    setFormData(prev => ({
+      ...prev,
       name: "",
-      manufacturer: "",
       modelNumber: "",
       serialNumber: "",
-      departmentId: "",
-      status: "OPERATIONAL",
-      nextServiceDate: new Date().toISOString().split('T')[0]
-    })
+    }))
   }
 
-  const filteredEquipment = equipment?.filter(eq => 
-    eq.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredEquipment = equipment?.filter(eq => {
+    const matchesSearch = eq.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesDept = deptParam ? eq.departmentId === deptParam : true
+    return matchesSearch && matchesDept
+  })
 
   const canCreate = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
 
@@ -121,7 +146,12 @@ export default function EquipmentPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-headline font-bold text-primary">Equipment Inventory</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage and track hospital biomedical assets.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {deptParam 
+                ? `Showing assets for ${departments?.find(d => d.id === deptParam)?.name || 'selected department'}.`
+                : "Manage and track all hospital biomedical assets."
+              }
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="hidden xs:inline-flex">
@@ -144,22 +174,22 @@ export default function EquipmentPage() {
                   <form onSubmit={handleAddEquipment} className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>Equipment Name</Label>
-                      <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                      <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="e.g. Ventilator PB980" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Manufacturer</Label>
-                        <Input value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} required />
+                        <Input value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} required placeholder="e.g. Medtronic" />
                       </div>
                       <div className="space-y-2">
                         <Label>Model Number</Label>
-                        <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} required />
+                        <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} required placeholder="e.g. PB-980-PLUS" />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Serial Number</Label>
-                        <Input value={formData.serialNumber} onChange={e => setFormData({...formData, serialNumber: e.target.value})} required />
+                        <Input value={formData.serialNumber} onChange={e => setFormData({...formData, serialNumber: e.target.value})} required placeholder="SN-XXXXXX" />
                       </div>
                       <div className="space-y-2">
                         <Label>Department</Label>
@@ -174,7 +204,13 @@ export default function EquipmentPage() {
                         </select>
                       </div>
                     </div>
-                    <DialogFooter>
+                    
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox id="add-another" checked={addAnother} onCheckedChange={(val) => setAddAnother(!!val)} />
+                      <Label htmlFor="add-another" className="text-xs text-muted-foreground">Keep dialog open to add multiple assets</Label>
+                    </div>
+
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
                       <Button type="submit" className="w-full">Initialize Asset</Button>
                     </DialogFooter>
                   </form>
@@ -186,7 +222,7 @@ export default function EquipmentPage() {
 
         <Card className="border-none shadow-sm overflow-hidden">
           <CardContent className="p-0">
-            <div className="p-4 border-b border-border bg-muted/10">
+            <div className="p-4 border-b border-border bg-muted/10 flex flex-col sm:flex-row items-center gap-4">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
@@ -196,6 +232,12 @@ export default function EquipmentPage() {
                   onChange={e => setSearchTerm(e.target.value)}
                 />
               </div>
+              {deptParam && (
+                <Button variant="ghost" size="sm" onClick={() => window.history.pushState({}, '', '/equipment')} className="whitespace-nowrap">
+                  <RefreshCw className="w-3 h-3 mr-2" />
+                  Show All Depts
+                </Button>
+              )}
             </div>
 
             <div className="overflow-x-auto">

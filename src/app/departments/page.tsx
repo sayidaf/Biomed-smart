@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,8 @@ import {
   Plus, 
   Stethoscope, 
   ChevronRight,
-  Loader2
+  Loader2,
+  Info
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
@@ -28,6 +29,17 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
+
+const DEPARTMENT_PRESETS: Record<string, string> = {
+  "ICU": "Critical care unit specializing in life support and intensive monitoring for patients with life-threatening illnesses or injuries.",
+  "Radiology": "Diagnostic imaging department utilizing X-rays, MRI, CT scans, and ultrasound to visualize internal body structures.",
+  "Laboratory": "Clinical pathology laboratory for analyzing blood, tissue, and other body fluids to diagnose and monitor diseases.",
+  "Cardiology": "Specialized unit for the diagnosis and treatment of heart conditions and cardiovascular diseases.",
+  "Maternity": "Neonatal and maternal care unit providing comprehensive services for childbirth and postnatal care.",
+  "Emergency": "Front-line medical service for acute illness and trauma requiring immediate specialized attention.",
+  "Oncology": "Diagnostic and treatment center for cancer including chemotherapy and radiotherapy hardware.",
+  "Operating Theatre": "Sterile surgical environment equipped with advanced monitoring and life-support systems."
+}
 
 export default function DepartmentsPage() {
   const db = useFirestore()
@@ -50,6 +62,17 @@ export default function DepartmentsPage() {
     name: "",
     description: ""
   })
+
+  // Prefill logic
+  useEffect(() => {
+    const trimmedName = formData.name.trim()
+    const presetKey = Object.keys(DEPARTMENT_PRESETS).find(
+      key => trimmedName.toLowerCase().includes(key.toLowerCase())
+    )
+    if (presetKey && !formData.description) {
+      setFormData(prev => ({ ...prev, description: DEPARTMENT_PRESETS[presetKey] }))
+    }
+  }, [formData.name])
 
   const handleAddDept = (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,12 +126,18 @@ export default function DepartmentsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Description (Optional)</Label>
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Info className="w-3 h-3" />
+                        Prefilled based on name
+                      </span>
+                    </div>
                     <Textarea 
                       value={formData.description} 
                       onChange={e => setFormData({...formData, description: e.target.value})} 
-                      required 
                       placeholder="Specify the medical scope or technical focus of this department..." 
+                      className="min-h-[100px]"
                     />
                   </div>
                   <DialogFooter>
@@ -140,19 +169,29 @@ export default function DepartmentsPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground mb-6 line-clamp-2 min-h-[40px]">
-                      {dept.description}
+                      {dept.description || "No description provided."}
                     </p>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-2">
-                        <Stethoscope className="w-4 h-4 text-accent" />
-                        <span className="text-sm font-bold">Local Assets</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="w-4 h-4 text-accent" />
+                          <span className="text-sm font-bold">Inventory</span>
+                        </div>
+                        <Link href={`/equipment?dept=${dept.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
+                            View Assets
+                            <ChevronRight className="ml-1 w-4 h-4" />
+                          </Button>
+                        </Link>
                       </div>
-                      <Link href={`/equipment?dept=${dept.id}`}>
-                        <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
-                          View
-                          <ChevronRight className="ml-1 w-4 h-4" />
-                        </Button>
-                      </Link>
+                      {canAddDept && (
+                        <Link href={`/equipment?dept=${dept.id}&add=true`} className="block w-full">
+                          <Button variant="outline" size="sm" className="w-full border-dashed">
+                            <Plus className="w-3 h-3 mr-2" />
+                            Register Multiple Assets
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
