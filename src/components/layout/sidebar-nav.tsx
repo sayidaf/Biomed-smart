@@ -37,7 +37,6 @@ const staffNavItems = [
 
 const adminNavItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Staff Management', href: '/users', icon: Users },
 ]
 

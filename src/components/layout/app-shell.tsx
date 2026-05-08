@@ -41,28 +41,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
 
-  // Notifications logic
+  const role = profile?.role?.toLowerCase()
+  const isEngineerRole = role === 'biomedical engineer' || role === 'technician'
+
+  // Notifications logic - Only fetch if user is an engineer
   const notificationsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null
+    if (!db || !user || !isEngineerRole) return null
     return query(
       collection(db, "userProfiles", user.uid, "notifications"),
       where("status", "==", "UNREAD"),
       limit(10)
     )
-  }, [db, user])
+  }, [db, user, isEngineerRole])
   const { data: notifications } = useCollection(notificationsQuery)
 
   // Equipment for service check
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile || !user) return null
+    if (!db || !profile || !user || !isEngineerRole) return null
     return collection(db, "equipment")
-  }, [db, profile, user])
+  }, [db, profile, user, isEngineerRole])
   const { data: allEquipment } = useCollection(equipmentQuery)
 
   // Automated Service Check Monitor
   useEffect(() => {
     const checkServiceDates = async () => {
-      if (!db || !user || !allEquipment || !profile) return
+      // ONLY run for Engineers or Technicians
+      if (!db || !user || !allEquipment || !profile || !isEngineerRole) return
 
       const today = startOfDay(new Date())
       
@@ -126,10 +130,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (allEquipment && profile?.role) {
+    if (allEquipment && isEngineerRole) {
       checkServiceDates()
     }
-  }, [allEquipment, db, user, profile, toast])
+  }, [allEquipment, db, user, profile, isEngineerRole, toast])
 
   const dismissNotification = (id: string) => {
     if (!db || !user) return
@@ -214,62 +218,64 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="w-5 h-5" />
-                  {notifications && notifications.length > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-destructive text-[10px] animate-pulse">
-                      {notifications.length}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0" align="end">
-                <div className="p-4 border-b bg-muted/50">
-                  <h4 className="font-bold text-sm flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-primary" />
-                    Technical Alerts
-                  </h4>
-                </div>
-                <div className="max-h-[400px] overflow-y-auto">
-                  {notifications && notifications.length > 0 ? (
-                    notifications.map(n => (
-                      <div key={n.id} className="p-4 border-b hover:bg-muted/30 transition-colors group relative">
-                        <button 
-                          onClick={() => dismissNotification(n.id)}
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-                        </button>
-                        <div className="flex gap-3">
-                          <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${
-                            n.type === 'SERVICE_DUE' ? 'bg-orange-100 text-orange-600' : 'bg-primary/10 text-primary'
-                          }`}>
-                            {n.type === 'SERVICE_DUE' ? <Zap className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-                          </div>
-                          <div className="space-y-1 min-w-0">
-                            <p className="text-xs font-bold truncate">{n.title}</p>
-                            <p className="text-[11px] text-muted-foreground leading-tight line-clamp-3">{n.message}</p>
-                            <div className="flex items-center gap-2 pt-1">
-                               <Badge variant="outline" className="text-[9px] h-4 py-0 flex items-center gap-1 border-green-200 bg-green-50 text-green-700">
-                                 <CheckCircle2 className="w-2.5 h-2.5" />
-                                 Email Sent
-                               </Badge>
+            {isEngineerRole && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="w-5 h-5" />
+                    {notifications && notifications.length > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-destructive text-[10px] animate-pulse">
+                        {notifications.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0" align="end">
+                  <div className="p-4 border-b bg-muted/50">
+                    <h4 className="font-bold text-sm flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-primary" />
+                      Technical Alerts
+                    </h4>
+                  </div>
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {notifications && notifications.length > 0 ? (
+                      notifications.map(n => (
+                        <div key={n.id} className="p-4 border-b hover:bg-muted/30 transition-colors group relative">
+                          <button 
+                            onClick={() => dismissNotification(n.id)}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+                          </button>
+                          <div className="flex gap-3">
+                            <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${
+                              n.type === 'SERVICE_DUE' ? 'bg-orange-100 text-orange-600' : 'bg-primary/10 text-primary'
+                            }`}>
+                              {n.type === 'SERVICE_DUE' ? <Zap className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-xs font-bold truncate">{n.title}</p>
+                              <p className="text-[11px] text-muted-foreground leading-tight line-clamp-3">{n.message}</p>
+                              <div className="flex items-center gap-2 pt-1">
+                                 <Badge variant="outline" className="text-[9px] h-4 py-0 flex items-center gap-1 border-green-200 bg-green-50 text-green-700">
+                                   <CheckCircle2 className="w-2.5 h-2.5" />
+                                   Email Sent
+                                 </Badge>
+                              </div>
                             </div>
                           </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="p-10 text-center space-y-2">
+                        <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto opacity-20" />
+                        <p className="text-xs text-muted-foreground">All systems verified and synchronized.</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="p-10 text-center space-y-2">
-                      <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto opacity-20" />
-                      <p className="text-xs text-muted-foreground">All systems verified and synchronized.</p>
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
 
             <div className="flex items-center gap-2 md:gap-3 pl-2 border-l border-border ml-1 md:ml-2">
               <div className="hidden lg:flex flex-col items-end">

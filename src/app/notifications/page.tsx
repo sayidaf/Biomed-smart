@@ -11,28 +11,39 @@ import {
   Trash2, 
   Mail, 
   Zap, 
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
+import { useRouter } from "next/navigation"
 
 export default function NotificationsPage() {
   const { user } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
+  const router = useRouter()
+
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !user) return null
+    return doc(db, "userProfiles", user.uid)
+  }, [db, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
+
+  const isEngineerRole = profile?.role === 'Biomedical Engineer' || profile?.role === 'Technician'
 
   const notificationsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null
+    if (!db || !user || !isEngineerRole) return null
     return query(
       collection(db, "userProfiles", user.uid, "notifications"),
       orderBy("createdAt", "desc")
     )
-  }, [db, user])
+  }, [db, user, isEngineerRole])
 
-  const { data: notifications, isLoading } = useCollection(notificationsQuery)
+  const { data: notifications, isLoading: isNotifsLoading } = useCollection(notificationsQuery)
 
   const markAsRead = async (id: string) => {
     if (!db || !user) return
@@ -60,6 +71,35 @@ export default function NotificationsPage() {
     toast({ title: "All Marked Read", description: "Communication channel cleared." })
   }
 
+  if (isProfileLoading) {
+    return (
+      <AppShell>
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (!isEngineerRole) {
+    return (
+      <AppShell>
+        <div className="max-w-md mx-auto py-20 text-center space-y-6 px-4">
+          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold font-headline">Access Restricted</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Notification center is reserved for Biomedical Engineering and Technical staff for service protocol management.
+            </p>
+          </div>
+          <Button onClick={() => router.push("/dashboard")} className="w-full">Return to Dashboard</Button>
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -78,7 +118,7 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {isLoading ? (
+        {isNotifsLoading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
