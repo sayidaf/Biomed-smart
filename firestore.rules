@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -10,12 +11,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Direct check for document ownership based on UID
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Safely check for a role without crashing if the document doesn't exist
     function hasRole(role) {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
@@ -33,17 +32,14 @@ service cloud.firestore {
     }
 
     match /userProfiles/{userId} {
-      // Users can ALWAYS see and update their own profile document
       allow get, update: if isOwner(userId) || isAdmin();
-      
-      // HANDSHAKE PROTOCOL: Allow a user to find their own profile by email to perform the UID link
-      // We allow list for own email even if not yet fully linked
       allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1 && (resource.data.email == request.auth.token.email || resource.data.email == request.auth.token.email.lower()));
-      
       allow create: if (isSignedIn() && request.resource.data.id == userId) || isAdmin();
-      
-      // Allow users to delete temporary records matching their email during the auto-link cleanup
       allow delete: if isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+
+      match /notifications/{notificationId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
     match /departments/{departmentId} {
@@ -55,24 +51,23 @@ service cloud.firestore {
       allow get, list: if isStaff();
       allow create, update: if isStaff();
       allow delete: if isAdmin();
-    }
 
-    // Use {path=**} to support collectionGroup queries for reports
-    match /{path=**}/maintenanceLogs/{logId} {
-      allow get, list: if isStaff();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    match /{path=**}/aiTroubleshootingSessions/{sessionId} {
-      allow get, list: if isStaff();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-
-      match /messages/{messageId} {
+      match /maintenanceLogs/{logId} {
         allow get, list: if isStaff();
-        allow create: if isStaff();
-        allow update, delete: if isAdmin();
+        allow create, update: if isStaff();
+        allow delete: if isAdmin();
+      }
+
+      match /aiTroubleshootingSessions/{sessionId} {
+        allow get, list: if isStaff();
+        allow create, update: if isStaff();
+        allow delete: if isAdmin();
+
+        match /messages/{messageId} {
+          allow get, list: if isStaff();
+          allow create: if isStaff();
+          allow update, delete: if isAdmin();
+        }
       }
     }
 
