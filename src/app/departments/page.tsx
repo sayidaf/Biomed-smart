@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { 
   Building2, 
   Plus, 
-  Stethoscope, 
+  Monitor,
   ChevronRight,
   Loader2,
   Info,
@@ -76,6 +77,12 @@ export default function DepartmentsPage() {
     return collection(db, "departments")
   }, [db, profile])
   const { data: departments, isLoading } = useCollection(deptQuery)
+
+  const equipmentQuery = useMemoFirebase(() => {
+    if (!db || !profile) return null
+    return collection(db, "equipment")
+  }, [db, profile])
+  const { data: allEquipment } = useCollection(equipmentQuery)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -209,75 +216,76 @@ export default function DepartmentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {departments && departments.length > 0 ? (
-              departments.map((dept, index) => (
-                <Card key={dept.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                  <div className="h-2 bg-primary/20 group-hover:bg-primary transition-colors" />
-                  <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {canManage && (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
-                          onClick={() => handleEditClick(dept)}
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeptToDelete(dept)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                  <CardHeader className="flex flex-row items-start justify-between pb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-primary" />
-                        </div>
-                        <Badge className="absolute -top-2 -left-2 h-5 w-5 p-0 flex items-center justify-center bg-primary text-[10px] border-2 border-background">
-                          {index + 1}
-                        </Badge>
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg font-headline">{dept.name}</CardTitle>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-6 line-clamp-2 min-h-[40px]">
-                      {dept.description || "No description provided."}
-                    </p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="w-4 h-4 text-accent" />
-                          <span className="text-sm font-bold">Inventory</span>
-                        </div>
-                        <Link href={`/equipment?dept=${dept.id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 group-hover:text-primary">
-                            View Assets
-                            <ChevronRight className="ml-1 w-4 h-4" />
-                          </Button>
-                        </Link>
-                      </div>
+              departments.map((dept, index) => {
+                const deptEquipmentCount = allEquipment?.filter(eq => eq.departmentId === dept.id).length || 0
+                return (
+                  <Card key={dept.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                    <div className="h-2 bg-primary/20 group-hover:bg-primary transition-colors" />
+                    <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {canManage && (
-                        <Link href={`/equipment?dept=${dept.id}&add=true`} className="block w-full">
-                          <Button variant="outline" size="sm" className="w-full border-dashed">
-                            <Plus className="w-3 h-3 mr-2" />
-                            Register Multiple Assets
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditClick(dept)}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
                           </Button>
-                        </Link>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeptToDelete(dept)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                    <CardHeader className="flex flex-row items-start justify-between pb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
+                            <Building2 className="w-6 h-6 text-primary" />
+                          </div>
+                          <Badge className="absolute -top-2 -left-2 h-5 w-5 p-0 flex items-center justify-center bg-primary text-[10px] border-2 border-background">
+                            {index + 1}
+                          </Badge>
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-headline">{dept.name}</CardTitle>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Monitor className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{deptEquipmentCount} Assets</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-6 line-clamp-2 min-h-[40px]">
+                        {dept.description || "No description provided."}
+                      </p>
+                      <div className="space-y-2">
+                        <Link href={`/equipment?dept=${dept.id}`} className="block w-full">
+                          <Button variant="secondary" size="sm" className="w-full flex items-center justify-between group/btn">
+                            View Inventory
+                            <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                          </Button>
+                        </Link>
+                        {canManage && (
+                          <Link href={`/equipment?dept=${dept.id}&add=true`} className="block w-full">
+                            <Button variant="outline" size="sm" className="w-full border-dashed gap-2">
+                              <Plus className="w-3 h-3" />
+                              Add New Equipment
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })
             ) : (
               <div className="col-span-full flex flex-col items-center justify-center py-20 bg-muted/20 rounded-2xl border border-dashed">
                 <Building2 className="w-12 h-12 text-muted-foreground opacity-20 mb-4" />

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -181,8 +182,8 @@ export default function EquipmentPage() {
                         <Input value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} required placeholder="e.g. Medtronic" />
                       </div>
                       <div className="space-y-2">
-                        <Label>Model Number</Label>
-                        <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} required placeholder="e.g. PB-980-PLUS" />
+                        <Label>Model Number (Optional)</Label>
+                        <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} placeholder="e.g. PB-980-PLUS" />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -264,7 +265,7 @@ export default function EquipmentPage() {
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{eq.name}</span>
-                              <span className="text-[10px] text-muted-foreground truncate">{eq.manufacturer} • {eq.modelNumber}</span>
+                              <span className="text-[10px] text-muted-foreground truncate">{eq.manufacturer}{eq.modelNumber ? ` • ${eq.modelNumber}` : ''}</span>
                             </div>
                           </div>
                         </TableCell>
