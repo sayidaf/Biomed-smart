@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -17,39 +16,49 @@ import {
   FileSearch,
   Zap,
   Microscope,
-  Building2
+  Building2,
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react"
 import { aiTroubleshoot, type AITroubleshootingOutput } from "@/ai/flows/ai-troubleshooting-assistant-flow"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc } from "firebase/firestore"
+import { collection, doc, query, where } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
 
 export default function TroubleshootPage() {
   const db = useFirestore()
   const { user: currentUser } = useUser()
+  
+  // Workflow State
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null)
+  const [selectedEqId, setSelectedEqId] = useState<string | null>(null)
   const [problem, setProblem] = useState("")
   const [errorCode, setErrorCode] = useState("")
-  const [selectedEqId, setSelectedEqId] = useState<string | null>(null)
+  
+  // Results State
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<AITroubleshootingOutput | null>(null)
 
+  // Auth Context
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !profile) return null
-    return collection(db, "equipment")
-  }, [db, profile])
-  const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
-
+  // Data Fetching
   const departmentsQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
     return collection(db, "departments")
   }, [db, profile])
-  const { data: departments } = useCollection(departmentsQuery)
+  const { data: departments, isLoading: isDeptsLoading } = useCollection(departmentsQuery)
+
+  const equipmentQuery = useMemoFirebase(() => {
+    if (!db || !profile || !selectedDeptId) return null
+    return query(collection(db, "equipment"), where("departmentId", "==", selectedDeptId))
+  }, [db, profile, selectedDeptId])
+  const { data: equipment, isLoading: isEqLoading } = useCollection(equipmentQuery)
 
   const handleTroubleshoot = async () => {
     if (!problem.trim() || !selectedEqId) return
@@ -59,7 +68,7 @@ export default function TroubleshootPage() {
       const eq = equipment?.find(e => e.id === selectedEqId)
       if (!eq) return
 
-      const dept = departments?.find(d => d.id === eq.departmentId)
+      const dept = departments?.find(d => d.id === selectedDeptId)
 
       const response = await aiTroubleshoot({
         equipmentId: eq.id,
@@ -82,143 +91,198 @@ export default function TroubleshootPage() {
     }
   }
 
+  const selectedDept = departments?.find(d => d.id === selectedDeptId)
   const selectedEq = equipment?.find(e => e.id === selectedEqId)
-  const selectedDept = departments?.find(d => d.id === selectedEq?.departmentId)
+
+  const resetFlow = () => {
+    setStep(1)
+    setSelectedDeptId(null)
+    setSelectedEqId(null)
+    setProblem("")
+    setErrorCode("")
+    setResult(null)
+  }
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
+      <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-headline font-bold text-primary flex items-center gap-3">
               <BrainCircuit className="w-8 h-8 text-accent shrink-0" />
-              AI Assistant
+              Intelligence Terminal
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Context-aware diagnostic guidance for clinical hardware.
+              Context-aware hardware diagnostics for clinical engineering.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
-            <History className="w-4 h-4" />
-            Sessions
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={resetFlow}>
+              New Session
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-2 hidden sm:flex">
+              <History className="w-4 h-4" />
+              Archive
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Sequential Selection */}
           <div className="lg:col-span-5 space-y-6">
-            <Card className="border-none shadow-sm">
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="text-lg">System Diagnosis</CardTitle>
-                <CardDescription>Select asset and describe technical symptoms</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
-                <div className="space-y-2">
-                  <Label>Hardware Target</Label>
-                  <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                    {isEqLoading ? (
-                      <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
-                    ) : equipment && equipment.length > 0 ? (
-                      equipment.map(eq => (
-                        <div 
-                          key={eq.id}
-                          onClick={() => setSelectedEqId(eq.id)}
-                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                            selectedEqId === eq.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                             <Microscope className={`w-4 h-4 shrink-0 ${selectedEqId === eq.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                             <div className="flex flex-col min-w-0">
-                               <span className="text-xs font-semibold truncate">{eq.name}</span>
-                               <span className="text-[10px] text-muted-foreground font-mono truncate">{eq.serialNumber}</span>
-                             </div>
-                          </div>
-                          {selectedEqId === eq.id && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground text-center py-4">No assets registered.</p>
-                    )}
-                  </div>
+            <Card className="border-none shadow-sm overflow-hidden">
+              <div className="h-1.5 bg-accent" />
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Step {step} of 3</Badge>
+                  {step > 1 && (
+                    <Button variant="ghost" size="sm" onClick={() => setStep((s) => (s - 1) as any)} className="h-7 text-xs">
+                      <ArrowLeft className="w-3 h-3 mr-1" />
+                      Back
+                    </Button>
+                  )}
                 </div>
-
-                {selectedEq && (
-                  <div className="p-3 bg-secondary/30 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                    <Building2 className="w-4 h-4 text-primary" />
-                    <div className="text-xs">
-                      <span className="text-muted-foreground">Department:</span>{' '}
-                      <span className="font-bold text-primary">{selectedDept?.name || 'N/A'}</span>
-                    </div>
+                <CardTitle className="text-lg mt-2">
+                  {step === 1 && "Select Department"}
+                  {step === 2 && "Select Target Asset"}
+                  {step === 3 && "Symptom Analysis"}
+                </CardTitle>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                {step === 1 && (
+                  <div className="grid grid-cols-1 gap-2">
+                    {isDeptsLoading ? (
+                      <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+                    ) : departments?.map(dept => (
+                      <button
+                        key={dept.id}
+                        onClick={() => { setSelectedDeptId(dept.id); setStep(2); }}
+                        className="flex items-center justify-between p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Building2 className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+                          <span className="font-semibold text-sm">{dept.name}</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    ))}
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label>Error Code</Label>
-                  <Input 
-                    placeholder="e.g. E-203, System Halt" 
-                    value={errorCode}
-                    onChange={(e) => setErrorCode(e.target.value)}
-                    className="h-10 bg-muted/20"
-                  />
-                </div>
+                {step === 2 && (
+                  <div className="grid grid-cols-1 gap-2">
+                    {isEqLoading ? (
+                      <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+                    ) : equipment && equipment.length > 0 ? (
+                      equipment.map(eq => (
+                        <button
+                          key={eq.id}
+                          onClick={() => { setSelectedEqId(eq.id); setStep(3); }}
+                          className="flex items-center justify-between p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Microscope className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-sm">{eq.name}</span>
+                              <span className="text-[10px] text-muted-foreground font-mono">{eq.serialNumber}</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">No assets found in {selectedDept?.name}.</p>
+                        <Button variant="link" onClick={() => setStep(1)}>Choose different department</Button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label>Symptom Analysis</Label>
-                  <Textarea 
-                    placeholder="Describe exactly what the hardware is doing or failing to do..." 
-                    className="min-h-[120px] bg-muted/20"
-                    value={problem}
-                    onChange={(e) => setProblem(e.target.value)}
-                  />
-                </div>
+                {step === 3 && (
+                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-4 bg-muted/50 rounded-xl border border-border space-y-1">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
+                        <Building2 className="w-3 h-3" />
+                        {selectedDept?.name}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-primary">
+                        <Microscope className="w-4 h-4" />
+                        {selectedEq?.name}
+                      </div>
+                    </div>
 
-                <Button 
-                  className="w-full h-12 shadow-lg shadow-primary/20 gap-2" 
-                  disabled={isLoading || !problem || !selectedEqId}
-                  onClick={handleTroubleshoot}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Synthesizing Response...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4 fill-white" />
-                      Engage Diagnostic Flow
-                    </>
-                  )}
-                </Button>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Error Code (Optional)</Label>
+                      <Input 
+                        placeholder="e.g. E-203, System Halt" 
+                        value={errorCode}
+                        onChange={(e) => setErrorCode(e.target.value)}
+                        className="h-10 bg-muted/20"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Symptom Description</Label>
+                      <Textarea 
+                        placeholder="Provide specific details about the malfunction or irregular behavior..." 
+                        className="min-h-[150px] bg-muted/20"
+                        value={problem}
+                        onChange={(e) => setProblem(e.target.value)}
+                      />
+                    </div>
+
+                    <Button 
+                      className="w-full h-12 shadow-lg shadow-primary/20 gap-2" 
+                      disabled={isLoading || !problem.trim()}
+                      onClick={handleTroubleshoot}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Synthesizing Diagnosis...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 fill-white" />
+                          Generate Repair Protocol
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
+          {/* Right Column: AI Response */}
           <div className="lg:col-span-7">
             {result ? (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                 <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary overflow-hidden">
-                  <CardHeader className="p-4 md:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge className="bg-primary hover:bg-primary text-[10px]">AI DIAGNOSIS</Badge>
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Context: {selectedDept?.name}</span>
+                  <CardHeader className="p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <Badge className="bg-primary hover:bg-primary text-[10px]">VERIFIED AI DIAGNOSIS</Badge>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Target: {selectedEq?.name}</span>
                     </div>
-                    <CardTitle className="text-xl md:text-2xl mt-2">{result.diagnosis}</CardTitle>
+                    <CardTitle className="text-xl md:text-2xl">{result.diagnosis}</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+                  <CardContent className="px-6 pb-6 pt-0">
                     <div className="flex flex-wrap gap-2">
                       {result.potentialCauses.map((cause, i) => (
-                        <Badge key={i} variant="secondary" className="bg-white/80 text-[10px]">{cause}</Badge>
+                        <Badge key={i} variant="secondary" className="bg-white/80 border-primary/10 text-[10px]">{cause}</Badge>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="border-none shadow-sm">
+                  <Card className="border-none shadow-sm h-full">
                      <CardHeader className="pb-2 p-4">
                       <CardTitle className="text-sm flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                        Recommended Actions
+                        Recommended Fixes
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
@@ -230,15 +294,15 @@ export default function TroubleshootPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border-none shadow-sm bg-destructive/5">
+                  <Card className="border-none shadow-sm bg-destructive/5 h-full">
                      <CardHeader className="pb-2 p-4">
                       <CardTitle className="text-sm flex items-center gap-2 text-destructive">
                         <AlertTriangle className="w-4 h-4 shrink-0" />
-                        Safety Precautions
+                        Safety Critical
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
-                      <ul className="text-xs space-y-2 text-muted-foreground list-disc pl-4">
+                      <ul className="text-xs space-y-2 text-destructive/80 list-disc pl-4">
                         {result.warningsAndPrecautions?.map((warning, i) => (
                           <li key={i}>{warning}</li>
                         ))}
@@ -248,46 +312,52 @@ export default function TroubleshootPage() {
                 </div>
 
                 <Card className="border-none shadow-sm">
-                  <CardHeader className="p-4 md:p-6">
-                    <CardTitle className="text-lg flex items-center gap-2">
+                  <CardHeader className="p-6">
+                    <CardTitle className="text-lg flex items-center gap-2 font-headline">
                       <FileSearch className="w-5 h-5 text-accent shrink-0" />
-                      Technical Step-by-Step
+                      Engineering Step-by-Step
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
-                    <div className="space-y-4">
+                  <CardContent className="px-6 pb-6 pt-0">
+                    <div className="space-y-5">
                       {result.stepByStepGuidance.map((step, i) => (
                         <div key={i} className="flex gap-4">
-                          <div className="w-6 h-6 shrink-0 rounded-full bg-secondary text-secondary-foreground text-xs font-bold flex items-center justify-center border border-primary/20">
+                          <div className="w-6 h-6 shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center border border-primary/20">
                             {i + 1}
                           </div>
-                          <p className="text-sm leading-relaxed">{step}</p>
+                          <p className="text-sm leading-relaxed text-foreground/90">{step}</p>
                         </div>
                       ))}
                     </div>
                     {result.estimatedRepairTime && (
-                      <div className="mt-8 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                        <span className="text-sm font-semibold">Projected Maintenance Time:</span>
-                        <Badge variant="outline" className="text-primary border-primary text-[10px]">{result.estimatedRepairTime}</Badge>
+                      <div className="mt-8 pt-4 border-t border-border flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase text-muted-foreground">Estimated Downtime Impact:</span>
+                        <Badge variant="outline" className="text-primary border-primary text-[10px] px-3">{result.estimatedRepairTime}</Badge>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                <div className="flex flex-col sm:flex-row justify-end gap-3">
-                  <Button variant="outline" className="w-full sm:w-auto">Log Session</Button>
-                  <Button className="w-full sm:w-auto">Raise Service Ticket</Button>
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+                  <Button variant="outline" className="w-full sm:w-auto">Print Protocol</Button>
+                  <Button className="w-full sm:w-auto shadow-lg shadow-primary/20">Create Service Ticket</Button>
                 </div>
               </div>
             ) : (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-xl border border-dashed border-border">
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-                  <BrainCircuit className="w-8 h-8 md:w-10 md:h-10 text-muted-foreground opacity-40" />
+              <div className="h-full min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-2xl border border-dashed border-border/50">
+                <div className="w-20 h-20 rounded-full bg-background flex items-center justify-center mb-6 shadow-inner">
+                  <BrainCircuit className="w-10 h-10 text-muted-foreground opacity-20" />
                 </div>
-                <h3 className="text-lg md:text-xl font-headline font-bold text-muted-foreground">Intelligence Terminal Idle</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                  Select a specific hardware asset and describe the failure to receive context-aware engineering support.
+                <h3 className="text-xl font-headline font-bold text-muted-foreground">Diagnostic Engine Offline</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mt-3 leading-relaxed">
+                  Please complete the sequential selection on the left. Once an asset is identified and symptoms are logged, the diagnostic AI will synthesize a custom repair protocol.
                 </p>
+                
+                <div className="mt-8 grid grid-cols-3 gap-8 opacity-20 grayscale">
+                   <Microscope className="w-8 h-8 mx-auto" />
+                   <Building2 className="w-8 h-8 mx-auto" />
+                   <Zap className="w-8 h-8 mx-auto" />
+                </div>
               </div>
             )}
           </div>
