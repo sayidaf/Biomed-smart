@@ -19,7 +19,7 @@ service cloud.firestore {
     function hasRole(role) {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == role;
+             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role.lower() == role.lower();
     }
 
     function isAdmin() {
@@ -29,7 +29,7 @@ service cloud.firestore {
     function isStaff() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-             (get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role in ['Admin', 'Biomedical Engineer', 'Technician']);
+             (get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role.lower() in ['admin', 'biomedical engineer', 'technician']);
     }
 
     match /userProfiles/{userId} {
@@ -37,7 +37,8 @@ service cloud.firestore {
       allow get, update: if isOwner(userId) || isAdmin();
       
       // HANDSHAKE PROTOCOL: Allow a user to find their own profile by email to perform the UID link
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1 && resource.data.email == request.auth.token.email);
+      // We allow list for own email even if not yet fully linked
+      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 1 && (resource.data.email == request.auth.token.email || resource.data.email == request.auth.token.email.lower()));
       
       allow create: if (isSignedIn() && request.resource.data.id == userId) || isAdmin();
       
@@ -56,13 +57,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /equipment/{equipmentId}/maintenanceLogs/{logId} {
+    // Use {path=**} to support collectionGroup queries for reports
+    match /{path=**}/maintenanceLogs/{logId} {
       allow get, list: if isStaff();
       allow create, update: if isStaff();
       allow delete: if isAdmin();
     }
 
-    match /equipment/{equipmentId}/aiTroubleshootingSessions/{sessionId} {
+    match /{path=**}/aiTroubleshootingSessions/{sessionId} {
       allow get, list: if isStaff();
       allow create, update: if isStaff();
       allow delete: if isAdmin();

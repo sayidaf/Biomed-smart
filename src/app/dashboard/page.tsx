@@ -65,10 +65,9 @@ export default function DashboardPage() {
 
       setIsLinking(true)
       try {
-        // Query to find existing profile record by email
         const q = query(
           collection(db, "userProfiles"), 
-          where("email", "==", user.email),
+          where("email", "==", user.email.toLowerCase()),
           limit(1)
         )
         const querySnapshot = await getDocs(q)
@@ -77,26 +76,23 @@ export default function DashboardPage() {
           const existingDoc = querySnapshot.docs[0]
           const data = existingDoc.data()
           
-          // If the doc exists but isn't at the UID path, link it
           if (existingDoc.id !== user.uid) {
             await setDoc(doc(db, "userProfiles", user.uid), {
               ...data,
               id: user.uid,
               updatedAt: serverTimestamp()
             })
-            
-            // Clean up the old email-based or random-id doc
             await deleteDoc(existingDoc.ref)
             
             toast({
               title: "Profile Synchronized",
-              description: "Your professional registry entry has been linked to your system identity.",
+              description: "Registry entry linked to your system identity.",
             })
             window.location.reload()
           }
         }
       } catch (error) {
-        console.warn("Handshake discovery in progress...", error)
+        console.warn("Handshake protocol active...", error)
       } finally {
         setIsLinking(false)
       }
@@ -118,7 +114,7 @@ export default function DashboardPage() {
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(allUsersQuery)
 
   const equipmentQuery = useMemoFirebase(() => {
-    if (!db || !isEngineer && !isAdmin) return null
+    if (!db || (!isEngineer && !isAdmin)) return null
     return collection(db, "equipment")
   }, [db, isEngineer, isAdmin])
   
