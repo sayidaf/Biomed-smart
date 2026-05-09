@@ -55,6 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { addMonths, format } from "date-fns"
 
 function EquipmentContent() {
   const db = useFirestore()
@@ -91,6 +92,9 @@ function EquipmentContent() {
   }, [db, profile])
   const { data: departments } = useCollection(deptQuery)
 
+  // Default next service to 12 months from now for new equipment
+  const defaultNextService = format(addMonths(new Date(), 12), 'yyyy-MM-dd')
+
   const [formData, setFormData] = useState({
     name: "",
     manufacturer: "",
@@ -98,7 +102,7 @@ function EquipmentContent() {
     serialNumber: "",
     departmentId: deptParam || "",
     status: "OPERATIONAL",
-    nextServiceDate: new Date().toISOString().split('T')[0]
+    nextServiceDate: defaultNextService
   })
 
   useEffect(() => {
@@ -116,6 +120,8 @@ function EquipmentContent() {
     const newId = `eq-${Math.random().toString(36).substring(2, 9)}`
     const eqRef = doc(db, "equipment", newId)
 
+    // Note: lastServiceDate is NOT set here, meaning it's a new machine.
+    // The AppShell notification logic will skip this until the first service is logged.
     setDocumentNonBlocking(eqRef, {
       ...formData,
       id: newId,
@@ -129,7 +135,13 @@ function EquipmentContent() {
     }, { merge: true })
 
     if (!addAnother) setIsDialogOpen(false)
-    setFormData(prev => ({ ...prev, name: "", modelNumber: "", serialNumber: "" }))
+    setFormData(prev => ({ 
+      ...prev, 
+      name: "", 
+      modelNumber: "", 
+      serialNumber: "",
+      nextServiceDate: defaultNextService 
+    }))
     toast({ title: "Asset Registered", description: "Equipment added to hospital registry." })
   }
 
@@ -142,7 +154,7 @@ function EquipmentContent() {
       serialNumber: eq.serialNumber,
       departmentId: eq.departmentId,
       status: eq.status,
-      nextServiceDate: eq.nextServiceDate || ""
+      nextServiceDate: eq.nextServiceDate || defaultNextService
     })
     setIsEditDialogOpen(true)
   }

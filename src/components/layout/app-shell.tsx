@@ -71,7 +71,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const today = startOfDay(new Date())
       
       for (const eq of allEquipment) {
-        if (!eq.nextServiceDate) continue
+        // PROFESSIONAL RULE: Only notify if machine has a baseline lastServiceDate recorded.
+        // This prevents instant notifications upon equipment registration.
+        if (!eq.nextServiceDate || !eq.lastServiceDate) continue
         
         const nextService = startOfDay(parseISO(eq.nextServiceDate))
         const daysDiff = differenceInDays(nextService, today)
@@ -102,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })
           }
         } 
-        // Case: Service is due within 7 days
+        // Case: Service is due Tomorrow (The Eve) or within 7 days
         else if (daysDiff <= 7 && daysDiff > 0) {
           const notificationId = `service-due-${eq.id}-${eq.nextServiceDate}`
           const notifRef = doc(db, "userProfiles", user.uid, "notifications", notificationId)
@@ -110,11 +112,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           const existing = await getDocs(query(collection(db, "userProfiles", user.uid, "notifications"), where("id", "==", notificationId)))
           
           if (existing.empty) {
+            const isEve = daysDiff === 1;
             await setDoc(notifRef, {
               id: notificationId,
               userId: user.uid,
-              title: "Service Protocol Alert",
-              message: `Asset ${eq.name} (SN: ${eq.serialNumber}) is due for service in ${daysDiff} days. Advance Email Dispatch: COMPLETED.`,
+              title: isEve ? "Protocol Warning: Service Eve" : "Service Protocol Alert",
+              message: isEve 
+                ? `Asset ${eq.name} (SN: ${eq.serialNumber}) is due for service TOMORROW. Please prepare tools and technical documents.`
+                : `Asset ${eq.name} (SN: ${eq.serialNumber}) is due for service in ${daysDiff} days. Advance Email Dispatch: COMPLETED.`,
               type: "SERVICE_DUE",
               status: "UNREAD",
               equipmentId: eq.id,
@@ -122,8 +127,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })
             
             toast({
-              title: "Service Alert",
-              description: `Automated warning: ${eq.name} requires maintenance protocol soon.`,
+              title: isEve ? "Eve of Service" : "Service Alert",
+              description: isEve 
+                ? `Final warning: ${eq.name} requires service tomorrow.`
+                : `Automated warning: ${eq.name} requires maintenance protocol soon.`,
             })
           }
         }
