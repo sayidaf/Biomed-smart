@@ -122,7 +122,7 @@ export default function FaultsPage() {
                             <Link href="/troubleshoot" className="flex-1 md:flex-none">
                               <Button variant="secondary" className="w-full gap-2 font-bold">
                                 <BrainCircuit className="w-4 h-4 text-accent" />
-                                AI Diagnosis
+                                Consult Intelligence
                               </Button>
                             </Link>
                             <Link href="/maintenance" className="flex-1 md:flex-none">

@@ -96,7 +96,7 @@ export default function TroubleshootPage() {
       })
       setResult(response)
     } catch (error) {
-      console.error("Troubleshooting failed:", error)
+      console.error("Diagnostic synthesis failed:", error)
     } finally {
       setIsLoading(false)
     }
@@ -128,7 +128,7 @@ export default function TroubleshootPage() {
       createdAt: serverTimestamp()
     })
 
-    toast({ title: "Protocol Archived", description: "Repair guidance saved to equipment history." })
+    toast({ title: "Protocol Archived", description: "Expert guidance saved to equipment history." })
     setIsSaving(false)
     resetFlow()
   }
@@ -155,7 +155,7 @@ export default function TroubleshootPage() {
               Intelligence Terminal
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Context-aware hardware diagnostics and registry management.
+              Context-aware diagnostic synthesis and professional knowledge base.
             </p>
           </div>
           <div className="flex gap-2">
@@ -192,17 +192,17 @@ export default function TroubleshootPage() {
               <div className="h-1.5 bg-accent" />
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Step {step} of 3</Badge>
+                  <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Protocol Stage {step}</Badge>
                   {step > 1 && (
-                    <Button variant="ghost" size="sm" onClick={() => setStep((s) => (s - 1) as any)} className="h-7 text-xs">
-                      <ArrowLeft className="w-3 h-3 mr-1" /> Back
+                    <Button variant="ghost" size="icon" onClick={() => setStep((s) => (s - 1) as any)} className="h-7 w-7">
+                      <ArrowLeft className="w-4 h-4" />
                     </Button>
                   )}
                 </div>
                 <CardTitle className="text-lg mt-2">
                   {step === 1 && "Select Department"}
-                  {step === 2 && "Select Target Asset"}
-                  {step === 3 && "Symptom Analysis"}
+                  {step === 2 && "Identify Target Asset"}
+                  {step === 3 && "Technical Analysis"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -241,7 +241,7 @@ export default function TroubleshootPage() {
                     ) : (
                       <div className="text-center py-8">
                         <p className="text-sm text-muted-foreground">No assets found in {selectedDept?.name}.</p>
-                        <Button variant="link" onClick={() => setStep(1)}>Choose different department</Button>
+                        <Button variant="link" onClick={() => setStep(1)}>Return to Departments</Button>
                       </div>
                     )}
                   </div>
@@ -257,11 +257,11 @@ export default function TroubleshootPage() {
                       <Input placeholder="e.g. E-203" value={errorCode} onChange={(e) => setErrorCode(e.target.value)} className="h-10 bg-muted/20" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase text-muted-foreground">Symptom Description</Label>
-                      <Textarea placeholder="Malfunction details..." className="min-h-[150px] bg-muted/20" value={problem} onChange={(e) => setProblem(e.target.value)} />
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Malfunction Details</Label>
+                      <Textarea placeholder="Describe the observed symptoms and breakdown circumstances..." className="min-h-[150px] bg-muted/20" value={problem} onChange={(e) => setProblem(e.target.value)} />
                     </div>
-                    <Button className="w-full h-12 shadow-lg shadow-primary/20 gap-2" disabled={isLoading || !problem.trim()} onClick={handleTroubleshoot}>
-                      {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Synthesizing...</> : <><Zap className="w-4 h-4 fill-white" /> Generate Protocol</>}
+                    <Button className="w-full h-12 shadow-lg shadow-primary/20 gap-2 font-bold" disabled={isLoading || !problem.trim()} onClick={handleTroubleshoot}>
+                      {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Synthesizing Protocol...</> : <><Zap className="w-4 h-4 fill-white" /> Synthesize Protocol</>}
                     </Button>
                   </div>
                 )}
@@ -275,8 +275,8 @@ export default function TroubleshootPage() {
                 <Card className="border-none shadow-sm bg-primary/5 border-l-4 border-l-primary overflow-hidden">
                   <CardHeader className="p-6">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <Badge className="bg-primary hover:bg-primary text-[10px]">VERIFIED AI DIAGNOSIS</Badge>
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Asset: {selectedEq?.name}</span>
+                      <Badge className="bg-primary hover:bg-primary text-[10px]">VERIFIED DIAGNOSIS</Badge>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Target: {selectedEq?.name}</span>
                     </div>
                     <CardTitle className="text-xl md:text-2xl">{result.diagnosis}</CardTitle>
                   </CardHeader>
@@ -292,7 +292,7 @@ export default function TroubleshootPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card className="border-none shadow-sm h-full">
                      <CardHeader className="pb-2 p-4">
-                      <CardTitle className="text-sm flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />Recommended Fixes</CardTitle>
+                      <CardTitle className="text-sm flex items-center gap-2 font-bold"><CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />Expert Actions</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                       <ul className="text-xs space-y-2 text-muted-foreground list-disc pl-4">{result.recommendedActions.map((action, i) => <li key={i}>{action}</li>)}</ul>
@@ -300,7 +300,7 @@ export default function TroubleshootPage() {
                   </Card>
                   <Card className="border-none shadow-sm bg-destructive/5 h-full">
                      <CardHeader className="pb-2 p-4">
-                      <CardTitle className="text-sm flex items-center gap-2 text-destructive"><AlertTriangle className="w-4 h-4 shrink-0" />Safety Critical</CardTitle>
+                      <CardTitle className="text-sm flex items-center gap-2 text-destructive font-bold"><AlertTriangle className="w-4 h-4 shrink-0" />Safety Protocol</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
                       <ul className="text-xs space-y-2 text-destructive/80 list-disc pl-4">{result.warningsAndPrecautions?.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
@@ -310,7 +310,7 @@ export default function TroubleshootPage() {
 
                 <Card className="border-none shadow-sm">
                   <CardHeader className="p-6">
-                    <CardTitle className="text-lg flex items-center gap-2 font-headline"><FileSearch className="w-5 h-5 text-accent shrink-0" />Engineering Step-by-Step</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2 font-headline font-bold"><FileSearch className="w-5 h-5 text-accent shrink-0" />Technical Guidance</CardTitle>
                   </CardHeader>
                   <CardContent className="px-6 pb-6 pt-0">
                     <div className="space-y-5">
@@ -326,14 +326,14 @@ export default function TroubleshootPage() {
 
                 <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
                   <Button variant="outline" onClick={resetFlow} className="gap-2"><Trash2 className="w-4 h-4" /> Discard Protocol</Button>
-                  <Button className="shadow-lg shadow-primary/20 gap-2" onClick={handleSaveProtocol} disabled={isSaving}><Save className="w-4 h-4" /> Save to Archive</Button>
+                  <Button className="shadow-lg shadow-primary/20 gap-2 font-bold" onClick={handleSaveProtocol} disabled={isSaving}><Save className="w-4 h-4" /> Archive to Registry</Button>
                 </div>
               </div>
             ) : (
               <div className="h-full min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-muted/20 rounded-2xl border border-dashed border-border/50">
                 <div className="w-20 h-20 rounded-full bg-background flex items-center justify-center mb-6 shadow-inner"><BrainCircuit className="w-10 h-10 text-muted-foreground opacity-20" /></div>
-                <h3 className="text-xl font-headline font-bold text-muted-foreground">Diagnostic Engine Offline</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mt-3 leading-relaxed">Please complete the selection. The AI will then synthesize a custom repair protocol.</p>
+                <h3 className="text-xl font-headline font-bold text-muted-foreground">Expert System Standby</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mt-3 leading-relaxed">Complete the asset selection and analysis stage to synthesize a professional diagnostic protocol.</p>
               </div>
             )}
           </div>

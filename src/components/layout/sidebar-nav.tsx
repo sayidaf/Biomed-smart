@@ -27,7 +27,7 @@ const staffNavItems = [
   { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Departments', href: '/departments', icon: Building2 },
   { name: 'Equipment', href: '/equipment', icon: Stethoscope },
-  { name: 'AI Troubleshoot', href: '/troubleshoot', icon: BrainCircuit },
+  { name: 'Intelligence Terminal', href: '/troubleshoot', icon: BrainCircuit },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
   { name: 'Faults', href: '/faults', icon: AlertTriangle },
   { name: 'History', href: '/history', icon: History },
