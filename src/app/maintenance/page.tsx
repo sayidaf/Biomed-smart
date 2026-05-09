@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   Clock,
   User,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  History
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp, query, where, addDoc } from "firebase/firestore"
@@ -37,7 +39,9 @@ export default function MaintenancePage() {
   
   const [lastServiceDate, setLastServiceDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [interval, setInterval] = useState("6")
+  const [logType, setLogType] = useState<'PREVENTIVE' | 'CORRECTIVE'>('PREVENTIVE')
   const [engineerName, setEngineerName] = useState("")
+  const [description, setDescription] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
   // Auth/Profile
@@ -64,7 +68,7 @@ export default function MaintenancePage() {
   const selectedEq = equipment?.find(e => e.id === selectedEqId)
 
   const nextServiceDate = useMemo(() => {
-    if (!lastServiceDate) return ""
+    if (!lastServiceDate || logType !== 'PREVENTIVE') return ""
     try {
       const date = new Date(lastServiceDate)
       const next = addMonths(date, parseInt(interval))
@@ -72,20 +76,24 @@ export default function MaintenancePage() {
     } catch (e) {
       return ""
     }
-  }, [lastServiceDate, interval])
+  }, [lastServiceDate, interval, logType])
 
   const handleSaveService = async () => {
     if (!db || !selectedEq || !engineerName) return
     setIsSaving(true)
 
+    const finalDescription = description || (logType === 'PREVENTIVE' 
+      ? `Routine service performed. Interval: ${interval} months.` 
+      : 'Corrective maintenance / Breakdown repair performed.')
+
     const logData = {
       equipmentId: selectedEq.id,
       performedById: currentUser?.uid || "unknown",
       engineerName: engineerName,
-      logType: 'Preventive Maintenance',
+      logType: logType === 'PREVENTIVE' ? 'Preventive Maintenance' : 'Corrective Maintenance',
       serviceDate: lastServiceDate,
-      description: `Routine service performed. Interval: ${interval} months.`,
-      nextServiceDate: nextServiceDate,
+      description: finalDescription,
+      nextServiceDate: nextServiceDate || selectedEq.nextServiceDate || "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }
@@ -95,16 +103,23 @@ export default function MaintenancePage() {
     addDocumentNonBlocking(logsRef, logData)
 
     // Update Equipment Master Record
-    const eqRef = doc(db, "equipment", selectedEq.id)
-    updateDocumentNonBlocking(eqRef, {
+    const updatePayload: any = {
       lastServiceDate: lastServiceDate,
-      nextServiceDate: nextServiceDate,
       updatedAt: serverTimestamp()
-    })
+    }
+
+    if (logType === 'PREVENTIVE' && nextServiceDate) {
+      updatePayload.nextServiceDate = nextServiceDate
+    }
+
+    const eqRef = doc(db, "equipment", selectedEq.id)
+    updateDocumentNonBlocking(eqRef, updatePayload)
 
     toast({
-      title: "Maintenance Logged",
-      description: `Service history updated for ${selectedEq.name}. Next service: ${nextServiceDate}`,
+      title: logType === 'PREVENTIVE' ? "Service Logged" : "Breakdown Repair Logged",
+      description: logType === 'PREVENTIVE' 
+        ? `Service history updated. Next scheduled: ${nextServiceDate}` 
+        : `Corrective maintenance record archived for ${selectedEq.name}.`,
     })
 
     setIsSaving(false)
@@ -112,6 +127,7 @@ export default function MaintenancePage() {
     setSelectedDeptId(null)
     setSelectedEqId(null)
     setEngineerName("")
+    setDescription("")
   }
 
   return (
@@ -206,7 +222,7 @@ export default function MaintenancePage() {
               <div className="h-2 bg-primary" />
               <CardHeader className="bg-muted/30">
                 <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-primary/20 text-primary border-primary/20">MAINTENANCE PROTOCOL</Badge>
+                  <Badge className="bg-primary/20 text-primary border-primary/20 uppercase tracking-widest">Technical Log Protocol</Badge>
                 </div>
                 <CardTitle className="text-2xl">{selectedEq.name}</CardTitle>
                 <CardDescription>
@@ -217,7 +233,29 @@ export default function MaintenancePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase text-muted-foreground">1. Last Service Date</Label>
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">1. Protocol Type</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant={logType === 'PREVENTIVE' ? 'default' : 'outline'} 
+                          className="h-12 gap-2"
+                          onClick={() => setLogType('PREVENTIVE')}
+                        >
+                          <History className="w-4 h-4" />
+                          Service (PM)
+                        </Button>
+                        <Button 
+                          variant={logType === 'CORRECTIVE' ? 'destructive' : 'outline'} 
+                          className="h-12 gap-2"
+                          onClick={() => setLogType('CORRECTIVE')}
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                          Regular (Breakdown)
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">2. Activity Date</Label>
                       <div className="relative">
                         <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input 
@@ -229,25 +267,27 @@ export default function MaintenancePage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase text-muted-foreground">2. Service Interval</Label>
-                      <select 
-                        className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                        value={interval}
-                        onChange={(e) => setInterval(e.target.value)}
-                      >
-                        <option value="1">1 Month (High Frequency)</option>
-                        <option value="3">3 Months (Quarterly)</option>
-                        <option value="6">6 Months (Bi-Annual)</option>
-                        <option value="12">12 Months (Annual)</option>
-                        <option value="24">24 Months (Long Term)</option>
-                      </select>
-                    </div>
+                    {logType === 'PREVENTIVE' && (
+                      <div className="space-y-2 animate-in fade-in duration-300">
+                        <Label className="text-xs font-bold uppercase text-muted-foreground">3. Service Interval</Label>
+                        <select 
+                          className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                          value={interval}
+                          onChange={(e) => setInterval(e.target.value)}
+                        >
+                          <option value="1">1 Month (High Frequency)</option>
+                          <option value="3">3 Months (Quarterly)</option>
+                          <option value="6">6 Months (Bi-Annual)</option>
+                          <option value="12">12 Months (Annual)</option>
+                          <option value="24">24 Months (Long Term)</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase text-muted-foreground">3. Serviced By (Lead Engineer)</Label>
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">4. Engineer (Performed By)</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input 
@@ -259,25 +299,38 @@ export default function MaintenancePage() {
                       </div>
                     </div>
 
-                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col items-center justify-center text-center">
-                      <Clock className="w-8 h-8 text-primary mb-2 opacity-50" />
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground mb-1 tracking-widest">Calculated Next Service</span>
-                      <span className="text-2xl font-headline font-bold text-primary">
-                        {nextServiceDate ? format(new Date(nextServiceDate), 'MMMM dd, yyyy') : '---'}
-                      </span>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">5. Technical Notes</Label>
+                      <Textarea 
+                        placeholder="Detail specific power problems, parts replaced, or breakdown causes..."
+                        className="min-h-[100px]"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                      />
                     </div>
+
+                    {logType === 'PREVENTIVE' && (
+                      <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
+                        <Clock className="w-8 h-8 text-primary mb-2 opacity-50" />
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground mb-1 tracking-widest">Calculated Next Service</span>
+                        <span className="text-2xl font-headline font-bold text-primary">
+                          {nextServiceDate ? format(new Date(nextServiceDate), 'MMMM dd, yyyy') : '---'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
-                  <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>Discard Changes</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>Abort Entry</Button>
                   <Button 
-                    className="flex-1 h-12 font-bold shadow-lg shadow-primary/20 gap-2" 
+                    className={`flex-1 h-12 font-bold shadow-lg gap-2 ${logType === 'CORRECTIVE' ? 'shadow-destructive/20' : 'shadow-primary/20'}`}
                     disabled={!engineerName || isSaving}
                     onClick={handleSaveService}
+                    variant={logType === 'CORRECTIVE' ? 'destructive' : 'default'}
                   >
                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                    Confirm & Update Asset Record
+                    Confirm & Update Asset Registry
                   </Button>
                 </div>
               </CardContent>
@@ -288,3 +341,5 @@ export default function MaintenancePage() {
     </AppShell>
   )
 }
+
+    

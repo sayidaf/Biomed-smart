@@ -21,7 +21,8 @@ import {
   Save,
   FileCheck,
   Type,
-  Users
+  Users,
+  Globe
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, query, where, serverTimestamp, orderBy, limit } from "firebase/firestore"
@@ -125,14 +126,28 @@ export default function ReportsPage() {
     toast({ title: "Word Doc Generated", description: "Your custom technical report has been exported." })
   }
 
+  const getEmailMetadata = () => {
+    const subject = reportScope === "GENERAL" ? "BioMedLink: General Hospital Audit" : `BioMedLink Report: ${selectedEq?.name} (${selectedEq?.serialNumber})`
+    return {
+      subject: encodeURIComponent(subject),
+      body: encodeURIComponent(editableContent)
+    }
+  }
+
   const handleEmailOutlook = () => {
     if (!editableContent) return
-    const subject = encodeURIComponent(reportScope === "GENERAL" ? "BioMedLink: General Hospital Audit" : `BioMedLink Report: ${selectedEq?.name} (${selectedEq?.serialNumber})`)
-    const body = encodeURIComponent(editableContent)
-    
+    const { subject, body } = getEmailMetadata()
     const mailtoUrl = `mailto:${recipientEmail}?cc=${recipientCc}&bcc=${recipientBcc}&subject=${subject}&body=${body}`
     window.location.href = mailtoUrl
     toast({ title: "Outlook Protocol Initiated", description: "Opening mail client with synchronized content." })
+  }
+
+  const handleEmailGmail = () => {
+    if (!editableContent) return
+    const { subject, body } = getEmailMetadata()
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${recipientEmail}&cc=${recipientCc}&bcc=${recipientBcc}&su=${subject}&body=${body}`
+    window.open(gmailUrl, '_blank')
+    toast({ title: "Gmail Protocol Initiated", description: "Opening Gmail composer in new tab." })
   }
 
   const handleSaveReport = () => {
@@ -151,7 +166,7 @@ export default function ReportsPage() {
     
     setTimeout(() => {
       setIsSaving(false)
-      toast({ title: "Report Archived", description: "Document saved to professional registry." })
+      toast({ title: "Archived to Registry", description: "This report has been permanently saved to the hospital's central audit database." })
       setStep(1)
       setSelectedDeptId(null)
       setSelectedEqId(null)
@@ -292,15 +307,15 @@ export default function ReportsPage() {
               </Card>
             </div>
 
-            {/* Email Config Section */}
+            {/* Config Section */}
             <div className="lg:col-span-5 space-y-6">
               <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Users className="w-5 h-5 text-primary" />
-                    Recipient Protocol
+                    Dispatch Protocol
                   </CardTitle>
-                  <CardDescription>Configure stakeholders for report dispatch.</CardDescription>
+                  <CardDescription>Configure stakeholders and delivery methods.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -347,23 +362,34 @@ export default function ReportsPage() {
                       Archived to Registry
                     </Button>
                     
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <Button 
                         variant="outline" 
-                        className="h-12 font-bold gap-2"
+                        className="w-full h-12 font-bold gap-2"
                         onClick={handleDownloadWord}
                       >
                         <Download className="w-4 h-4" />
-                        Word Doc
+                        Download Word Document
                       </Button>
-                      <Button 
-                        variant="secondary" 
-                        className="h-12 font-bold gap-2"
-                        onClick={handleEmailOutlook}
-                      >
-                        <Mail className="w-4 h-4" />
-                        Outlook
-                      </Button>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button 
+                          variant="secondary" 
+                          className="h-12 font-bold gap-2"
+                          onClick={handleEmailOutlook}
+                        >
+                          <Mail className="w-4 h-4" />
+                          Outlook
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          className="h-12 font-bold gap-2"
+                          onClick={handleEmailGmail}
+                        >
+                          <Globe className="w-4 h-4" />
+                          Gmail
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -372,7 +398,7 @@ export default function ReportsPage() {
               {/* Tips / Info */}
               <div className="p-4 bg-muted/30 rounded-xl border border-dashed text-center">
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  <strong>Technical Note:</strong> Changes made in the editor above will be reflected in both the downloadable Word document and the Outlook email body.
+                  <strong>Technical Note:</strong> "Archived to Registry" saves the official document to the hospital's central Firestore database for long-term audit trail compliance.
                 </p>
               </div>
             </div>
@@ -382,3 +408,5 @@ export default function ReportsPage() {
     </AppShell>
   )
 }
+
+    
