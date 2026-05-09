@@ -18,6 +18,11 @@ The system is built with a focus on medical data integrity and professional secu
 - **Firestore Security Rules**: Role-based access control (RBAC) ensuring only authorized staff can access clinical assets and audit reports.
 - **Rate Limit Resilience**: Intelligent data fetching patterns that minimize redundant server calls.
 
+## PWA Capabilities
+- **Installable**: Fully compatible with Chrome, Edge, and Safari PWA standards.
+- **Offline Aware**: Foundational service worker integration for persistent terminal access.
+- **Custom Identity**: High-resolution 512x512 icon integration for professional desktop branding.
+
 ## License
 This project is licensed under the MIT License.
 

@@ -126,21 +126,37 @@ export default function MaintenancePage() {
           <div>
             <h1 className="text-2xl md:text-3xl font-headline font-bold text-primary flex items-center gap-3">
               <Wrench className="w-8 h-8 text-primary shrink-0" />
-              Service Terminal
+              Maintenance Terminal
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Professional maintenance scheduling and registry updates.</p>
+            <p className="text-sm text-muted-foreground mt-1">Professional service scheduling and breakdown registry updates.</p>
           </div>
-          {step > 1 && <Button variant="ghost" onClick={() => setStep((s) => (s - 1) as any)} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>}
+          {step > 1 && (
+            <Button variant="ghost" onClick={() => setStep((s) => (s - 1) as any)} className="gap-2">
+              <ArrowLeft className="w-4 h-4" /> 
+              Back
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6">
           {step === 1 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {isDeptsLoading ? <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div> : departments?.map(dept => (
-                <Card key={dept.id} className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group" onClick={() => { setSelectedDeptId(dept.id); setStep(2); }}>
+              {isDeptsLoading ? (
+                <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+              ) : departments?.map(dept => (
+                <Card 
+                  key={dept.id} 
+                  className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group" 
+                  onClick={() => { setSelectedDeptId(dept.id); setStep(2); }}
+                >
                   <CardContent className="p-6 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0"><Building2 className="w-6 h-6" /></div>
-                    <div className="flex-1 min-w-0"><h3 className="font-bold text-lg truncate">{dept.name}</h3><p className="text-xs text-muted-foreground">Select sector</p></div>
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg truncate">{dept.name}</h3>
+                      <p className="text-xs text-muted-foreground">Select hospital sector</p>
+                    </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </CardContent>
                 </Card>
@@ -150,15 +166,37 @@ export default function MaintenancePage() {
 
           {step === 2 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {isEqLoading ? <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div> : equipment?.map(eq => (
-                <Card key={eq.id} className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group" onClick={() => { setSelectedEqId(eq.id); setStep(3); }}>
-                  <CardContent className="p-6 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0"><Monitor className="w-6 h-6" /></div>
-                    <div className="flex-1 min-w-0"><h3 className="font-bold text-sm truncate">{eq.name}</h3><Badge variant="outline" className="text-[10px] truncate">{eq.serialNumber}</Badge></div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              ))}
+              {isEqLoading ? (
+                <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+              ) : (
+                <>
+                  {equipment && equipment.length > 0 ? (
+                    equipment.map(eq => (
+                      <Card 
+                        key={eq.id} 
+                        className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group" 
+                        onClick={() => { setSelectedEqId(eq.id); setStep(3); }}
+                      >
+                        <CardContent className="p-6 flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
+                            <Monitor className="w-6 h-6" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-sm truncate">{eq.name}</h3>
+                            <Badge variant="outline" className="text-[10px] truncate">{eq.serialNumber}</Badge>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-10 text-center">
+                      <p className="text-muted-foreground">No assets registered in this department.</p>
+                      <Button variant="link" onClick={() => setStep(1)}>Return to Sectors</Button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
@@ -167,46 +205,89 @@ export default function MaintenancePage() {
               <div className="h-2 bg-primary" />
               <CardHeader className="bg-muted/30 p-6">
                 <CardTitle className="text-2xl">{selectedEq.name}</CardTitle>
-                <CardDescription>SN: {selectedEq.serialNumber} • Status: {selectedEq.status}</CardDescription>
+                <CardDescription>
+                  SN: {selectedEq.serialNumber} • Manufacturer: {selectedEq.manufacturer} • Current Status: {selectedEq.status}
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">1. Protocol Type</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button variant={logType === 'PREVENTIVE' ? 'default' : 'outline'} className="h-12 gap-2" onClick={() => setLogType('PREVENTIVE')} title="Service Cycle"><History className="w-4 h-4" /> Service</Button>
-                        <Button variant={logType === 'CORRECTIVE' ? 'destructive' : 'outline'} className="h-12 gap-2" onClick={() => setLogType('CORRECTIVE')} title="Breakdown Repair"><AlertTriangle className="w-4 h-4" /> Breakdown</Button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Button 
+                          variant={logType === 'PREVENTIVE' ? 'default' : 'outline'} 
+                          className="h-12 gap-2 text-xs md:text-sm" 
+                          onClick={() => setLogType('PREVENTIVE')}
+                          title="Routine Service Cycle: Updates next service date and registry compliance status."
+                        >
+                          <History className="w-4 h-4" /> 
+                          Service
+                        </Button>
+                        <Button 
+                          variant={logType === 'CORRECTIVE' ? 'destructive' : 'outline'} 
+                          className="h-12 gap-2 text-xs md:text-sm" 
+                          onClick={() => setLogType('CORRECTIVE')}
+                          title="Corrective Repair: Logs a breakdown event or power failure without resetting the main service cycle."
+                        >
+                          <AlertTriangle className="w-4 h-4" /> 
+                          Breakdown
+                        </Button>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">2. Activity Date</Label>
-                      <Input type="date" className="h-12" value={lastServiceDate} onChange={(e) => setLastServiceDate(e.target.value)} />
+                      <Input 
+                        type="date" 
+                        className="h-12" 
+                        value={lastServiceDate} 
+                        onChange={(e) => setLastServiceDate(e.target.value)} 
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">3. Registry Update</Label>
-                      <select className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={updatedStatus} onChange={(e) => setUpdatedStatus(e.target.value as any)}>
-                        <option value="">No Change ({selectedEq.status})</option>
-                        <option value="OPERATIONAL">Set to OPERATIONAL</option>
-                        <option value="FAULTY">Flag as FAULTY</option>
-                        <option value="MAINTENANCE">Set to MAINTENANCE</option>
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">3. Registry Status Update</Label>
+                      <select 
+                        className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" 
+                        value={updatedStatus} 
+                        onChange={(e) => setUpdatedStatus(e.target.value as any)}
+                        title="Update the machine's operational status in the master inventory list."
+                      >
+                        <option value="">No Change (Keep {selectedEq.status})</option>
+                        <option value="OPERATIONAL">Set to OPERATIONAL (Fixed)</option>
+                        <option value="FAULTY">Flag as FAULTY (Unresolved)</option>
+                        <option value="MAINTENANCE">Set to MAINTENANCE (In Progress)</option>
                       </select>
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">4. Engineer</Label>
-                      <Input placeholder="Full Name" className="h-12" value={engineerName} onChange={(e) => setEngineerName(e.target.value)} />
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">4. Performing Engineer</Label>
+                      <Input 
+                        placeholder="Full Name of Technical Staff" 
+                        className="h-12" 
+                        value={engineerName} 
+                        onChange={(e) => setEngineerName(e.target.value)} 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">5. Technical Notes</Label>
-                      <Textarea placeholder="Malfunction or repair details..." className="min-h-[100px]" value={description} onChange={(e) => setDescription(e.target.value)} />
+                      <Textarea 
+                        placeholder="Detail specific power problems, parts replaced, or breakdown causes..." 
+                        className="min-h-[100px]" 
+                        value={description} 
+                        onChange={(e) => setDescription(e.target.value)} 
+                      />
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
-                  <Button variant="outline" className="flex-1 order-2 sm:order-1" onClick={() => setStep(2)}>Abort</Button>
-                  <Button className="flex-1 h-12 font-bold shadow-lg shadow-primary/20 gap-2 order-1 sm:order-2" disabled={!engineerName || isSaving} onClick={handleSaveService}>
+                  <Button variant="outline" className="flex-1 order-2 sm:order-1" onClick={() => setStep(2)}>Abort Protocol</Button>
+                  <Button 
+                    className="flex-1 h-12 font-bold shadow-lg shadow-primary/20 gap-2 order-1 sm:order-2" 
+                    disabled={!engineerName || isSaving} 
+                    onClick={handleSaveService}
+                    title="Finalize Record: Permanently archive this technical activity to the equipment history and hospital audit registry."
+                  >
                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
                     Confirm Registry Entry
                   </Button>
