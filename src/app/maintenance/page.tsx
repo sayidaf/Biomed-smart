@@ -240,6 +240,7 @@ export default function MaintenancePage() {
                           variant={logType === 'PREVENTIVE' ? 'default' : 'outline'} 
                           className="h-12 gap-2 text-xs"
                           onClick={() => setLogType('PREVENTIVE')}
+                          title="Preventive Maintenance (PM): Standard scheduled service cycle protocol."
                         >
                           <History className="w-4 h-4 shrink-0" />
                           <span className="truncate">Service (PM)</span>
@@ -248,6 +249,7 @@ export default function MaintenancePage() {
                           variant={logType === 'CORRECTIVE' ? 'destructive' : 'outline'} 
                           className="h-12 gap-2 text-xs"
                           onClick={() => setLogType('CORRECTIVE')}
+                          title="Corrective Maintenance: Unscheduled repair protocol for hardware breakdowns."
                         >
                           <AlertTriangle className="w-4 h-4 shrink-0" />
                           <span className="truncate">Regular (Breakdown)</span>
@@ -329,6 +331,7 @@ export default function MaintenancePage() {
                     disabled={!engineerName || isSaving}
                     onClick={handleSaveService}
                     variant={logType === 'CORRECTIVE' ? 'destructive' : 'default'}
+                    title="Commit this maintenance record to the hospital registry database."
                   >
                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
                     <span className="truncate">Confirm & Update Asset Registry</span>
