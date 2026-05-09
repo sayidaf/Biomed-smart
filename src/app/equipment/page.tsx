@@ -15,12 +15,15 @@ import {
   ChevronRight,
   Printer,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Edit2,
+  Trash2,
+  AlertTriangle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { sanitizeInput } from "@/lib/utils"
 import {
   Table,
@@ -41,19 +44,35 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 function EquipmentContent() {
   const db = useFirestore()
   const searchParams = useSearchParams()
   const { user: currentUser } = useUser()
+  const { toast } = useToast()
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [eqToDelete, setEqToDelete] = useState<any | null>(null)
+  const [editingEq, setEditingEq] = useState<any | null>(null)
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [addAnother, setAddAnother] = useState(false)
 
   const deptParam = searchParams.get('dept')
   const autoAdd = searchParams.get('add') === 'true'
 
-  // Security: Memoize references to prevent N+1 queries
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
@@ -62,8 +81,6 @@ function EquipmentContent() {
 
   const equipmentQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
-    const staffRoles = ['Admin', 'Biomedical Engineer', 'Technician'];
-    if (!staffRoles.includes(profile.role)) return null;
     return collection(db, "equipment")
   }, [db, profile])
   const { data: equipment, isLoading } = useCollection(equipmentQuery)
@@ -85,38 +102,22 @@ function EquipmentContent() {
   })
 
   useEffect(() => {
-    if (deptParam) {
-      setFormData(prev => ({ ...prev, departmentId: deptParam }))
-    }
+    if (deptParam) setFormData(prev => ({ ...prev, departmentId: deptParam }))
   }, [deptParam])
 
   useEffect(() => {
-    if (autoAdd) {
-      setIsDialogOpen(true)
-    }
+    if (autoAdd) setIsDialogOpen(true)
   }, [autoAdd])
 
   const handleAddEquipment = (e: React.FormEvent) => {
     e.preventDefault()
     if (!db) return
 
-    // Security: Input Sanitization
-    const sanitizedData = {
-      name: sanitizeInput(formData.name),
-      manufacturer: sanitizeInput(formData.manufacturer),
-      modelNumber: sanitizeInput(formData.modelNumber),
-      serialNumber: sanitizeInput(formData.serialNumber),
-      departmentId: formData.departmentId,
-      status: formData.status,
-      nextServiceDate: formData.nextServiceDate
-    }
-
-    // Security: Idempotent ID generation (SN based) or Random
     const newId = `eq-${Math.random().toString(36).substring(2, 9)}`
     const eqRef = doc(db, "equipment", newId)
 
     setDocumentNonBlocking(eqRef, {
-      ...sanitizedData,
+      ...formData,
       id: newId,
       purchaseDate: new Date().toISOString().split('T')[0],
       installationDate: new Date().toISOString().split('T')[0],
@@ -127,16 +128,46 @@ function EquipmentContent() {
       updatedAt: serverTimestamp()
     }, { merge: true })
 
-    if (!addAnother) {
-      setIsDialogOpen(false)
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      name: "",
-      modelNumber: "",
-      serialNumber: "",
-    }))
+    if (!addAnother) setIsDialogOpen(false)
+    setFormData(prev => ({ ...prev, name: "", modelNumber: "", serialNumber: "" }))
+    toast({ title: "Asset Registered", description: "Equipment added to hospital registry." })
+  }
+
+  const handleEditClick = (eq: any) => {
+    setEditingEq(eq)
+    setFormData({
+      name: eq.name,
+      manufacturer: eq.manufacturer,
+      modelNumber: eq.modelNumber || "",
+      serialNumber: eq.serialNumber,
+      departmentId: eq.departmentId,
+      status: eq.status,
+      nextServiceDate: eq.nextServiceDate || ""
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateEquipment = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!db || !editingEq) return
+
+    const eqRef = doc(db, "equipment", editingEq.id)
+    updateDocumentNonBlocking(eqRef, {
+      ...formData,
+      updatedAt: serverTimestamp()
+    })
+
+    setIsEditDialogOpen(false)
+    setEditingEq(null)
+    toast({ title: "Registry Updated", description: "Equipment details synchronized." })
+  }
+
+  const confirmDelete = () => {
+    if (!db || !eqToDelete) return
+    const eqRef = doc(db, "equipment", eqToDelete.id)
+    deleteDocumentNonBlocking(eqRef)
+    setEqToDelete(null)
+    toast({ variant: "destructive", title: "Asset Purged", description: "Equipment removed from registry." })
   }
 
   const filteredEquipment = equipment?.filter(eq => {
@@ -146,7 +177,7 @@ function EquipmentContent() {
     return matchesSearch && matchesDept
   })
 
-  const canCreate = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
+  const canManage = profile?.role === 'Admin' || profile?.role === 'Biomedical Engineer'
 
   return (
     <div className="space-y-6">
@@ -154,10 +185,7 @@ function EquipmentContent() {
         <div>
           <h1 className="text-2xl md:text-3xl font-headline font-bold text-primary">Equipment Inventory</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {deptParam 
-              ? `Showing assets for ${departments?.find(d => d.id === deptParam)?.name || 'selected department'}.`
-              : "Manage and track all hospital biomedical assets."
-            }
+            Manage and track all hospital biomedical assets across all facility sectors.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -165,7 +193,7 @@ function EquipmentContent() {
             <Printer className="w-4 h-4 mr-2" />
             QR Labels
           </Button>
-          {canCreate && (
+          {canManage && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="w-full sm:w-auto shadow-lg shadow-primary/20">
@@ -183,7 +211,7 @@ function EquipmentContent() {
                     <Label>Equipment Name</Label>
                     <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="e.g. Ventilator PB980" />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Manufacturer</Label>
                       <Input value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} required placeholder="e.g. Medtronic" />
@@ -193,7 +221,7 @@ function EquipmentContent() {
                       <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} placeholder="e.g. PB-980-PLUS" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Serial Number</Label>
                       <Input value={formData.serialNumber} onChange={e => setFormData({...formData, serialNumber: e.target.value})} required placeholder="SN-XXXXXX" />
@@ -211,13 +239,26 @@ function EquipmentContent() {
                       </select>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Initial Status</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      value={formData.status}
+                      onChange={e => setFormData({...formData, status: e.target.value})}
+                      required
+                    >
+                      <option value="OPERATIONAL">Operational</option>
+                      <option value="FAULTY">Faulty</option>
+                      <option value="MAINTENANCE">Maintenance</option>
+                    </select>
+                  </div>
                   
                   <div className="flex items-center space-x-2 pt-2">
                     <Checkbox id="add-another" checked={addAnother} onCheckedChange={(val) => setAddAnother(!!val)} />
                     <Label htmlFor="add-another" className="text-xs text-muted-foreground">Keep dialog open to add multiple assets</Label>
                   </div>
 
-                  <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <DialogFooter>
                     <Button type="submit" className="w-full">Initialize Asset</Button>
                   </DialogFooter>
                 </form>
@@ -264,14 +305,14 @@ function EquipmentContent() {
                   <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredEquipment && filteredEquipment.length > 0 ? (
                   filteredEquipment.map((eq) => (
-                    <TableRow key={eq.id} className="group cursor-pointer">
+                    <TableRow key={eq.id} className="group">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                            <Monitor className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                          <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                            <Monitor className="w-5 h-5 text-primary" />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{eq.name}</span>
+                            <span className="font-semibold text-sm truncate">{eq.name}</span>
                             <span className="text-[10px] text-muted-foreground truncate">{eq.manufacturer}{eq.modelNumber ? ` • ${eq.modelNumber}` : ''}</span>
                           </div>
                         </div>
@@ -299,7 +340,18 @@ function EquipmentContent() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><ChevronRight className="w-4 h-4" /></Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {canManage && (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEditClick(eq)}>
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setEqToDelete(eq)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -311,6 +363,82 @@ function EquipmentContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Modify Asset Registry</DialogTitle>
+            <DialogDescription>Update the master record for <strong>{editingEq?.name}</strong>.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateEquipment} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Equipment Name</Label>
+              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Manufacturer</Label>
+                <Input value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Model Number</Label>
+                <Input value={formData.modelNumber} onChange={e => setFormData({...formData, modelNumber: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Operational Status</Label>
+                <select 
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={formData.status}
+                  onChange={e => setFormData({...formData, status: e.target.value})}
+                  required
+                >
+                  <option value="OPERATIONAL">Operational</option>
+                  <option value="FAULTY">Faulty (Breakdown)</option>
+                  <option value="MAINTENANCE">Under Maintenance</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <select 
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={formData.departmentId}
+                  onChange={e => setFormData({...formData, departmentId: e.target.value})}
+                  required
+                >
+                  {departments?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="w-full">Synchronize Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!eqToDelete} onOpenChange={(open) => !open && setEqToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Purge Asset Record?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{eqToDelete?.name}</strong> (SN: {eqToDelete?.serialNumber})? This will permanently delete the asset from the hospital registry.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abort</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirm Purge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

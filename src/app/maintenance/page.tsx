@@ -21,7 +21,8 @@ import {
   User,
   Loader2,
   AlertTriangle,
-  History
+  History,
+  Settings
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, serverTimestamp, query, where } from "firebase/firestore"
@@ -43,16 +44,15 @@ export default function MaintenancePage() {
   const [logType, setLogType] = useState<'PREVENTIVE' | 'CORRECTIVE'>('PREVENTIVE')
   const [engineerName, setEngineerName] = useState("")
   const [description, setDescription] = useState("")
+  const [updatedStatus, setUpdatedStatus] = useState<'OPERATIONAL' | 'FAULTY' | 'MAINTENANCE' | ''>('')
   const [isSaving, setIsSaving] = useState(false)
 
-  // Auth/Profile
   const profileRef = useMemoFirebase(() => {
     if (!db || !currentUser) return null
     return doc(db, "userProfiles", currentUser.uid)
   }, [db, currentUser])
   const { data: profile } = useDoc(profileRef)
 
-  // Data Fetching
   const departmentsQuery = useMemoFirebase(() => {
     if (!db || !profile) return null
     return collection(db, "departments")
@@ -74,18 +74,12 @@ export default function MaintenancePage() {
       const date = new Date(lastServiceDate)
       const next = addMonths(date, parseInt(interval))
       return format(next, 'yyyy-MM-dd')
-    } catch (e) {
-      return ""
-    }
+    } catch (e) { return "" }
   }, [lastServiceDate, interval, logType])
 
   const handleSaveService = async () => {
     if (!db || !selectedEq || !engineerName) return
     setIsSaving(true)
-
-    const finalDescription = description || (logType === 'PREVENTIVE' 
-      ? `Routine service performed. Interval: ${interval} months.` 
-      : 'Corrective maintenance / Breakdown repair performed.')
 
     const logData = {
       equipmentId: selectedEq.id,
@@ -93,42 +87,36 @@ export default function MaintenancePage() {
       engineerName: engineerName,
       logType: logType === 'PREVENTIVE' ? 'Preventive Maintenance' : 'Corrective Maintenance',
       serviceDate: lastServiceDate,
-      description: finalDescription,
+      description: description || (logType === 'PREVENTIVE' ? 'Routine service.' : 'Breakdown repair.'),
       nextServiceDate: nextServiceDate || selectedEq.nextServiceDate || "",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      createdAt: serverTimestamp()
     }
 
-    // Save to Maintenance Logs subcollection
     const logsRef = collection(db, "equipment", selectedEq.id, "maintenanceLogs")
     addDocumentNonBlocking(logsRef, logData)
 
-    // Update Equipment Master Record
     const updatePayload: any = {
       lastServiceDate: lastServiceDate,
       updatedAt: serverTimestamp()
     }
-
-    if (logType === 'PREVENTIVE' && nextServiceDate) {
-      updatePayload.nextServiceDate = nextServiceDate
-    }
+    if (logType === 'PREVENTIVE' && nextServiceDate) updatePayload.nextServiceDate = nextServiceDate
+    if (updatedStatus) updatePayload.status = updatedStatus
 
     const eqRef = doc(db, "equipment", selectedEq.id)
     updateDocumentNonBlocking(eqRef, updatePayload)
 
-    toast({
-      title: logType === 'PREVENTIVE' ? "Service Logged" : "Breakdown Repair Logged",
-      description: logType === 'PREVENTIVE' 
-        ? `Service history updated. Next scheduled: ${nextServiceDate}` 
-        : `Corrective maintenance record archived for ${selectedEq.name}.`,
-    })
-
+    toast({ title: "Protocol Logged", description: "Asset registry and history updated." })
     setIsSaving(false)
+    resetFlow()
+  }
+
+  const resetFlow = () => {
     setStep(1)
     setSelectedDeptId(null)
     setSelectedEqId(null)
     setEngineerName("")
     setDescription("")
+    setUpdatedStatus('')
   }
 
   return (
@@ -140,201 +128,87 @@ export default function MaintenancePage() {
               <Wrench className="w-8 h-8 text-primary shrink-0" />
               Service Terminal
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Professional maintenance scheduling and compliance tracking.</p>
+            <p className="text-sm text-muted-foreground mt-1">Professional maintenance scheduling and registry updates.</p>
           </div>
-          {step > 1 && (
-            <Button variant="ghost" onClick={() => setStep((s) => (s - 1) as any)} className="gap-2 w-full sm:w-auto">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          )}
+          {step > 1 && <Button variant="ghost" onClick={() => setStep((s) => (s - 1) as any)} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>}
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {/* Step 1: Dept Selection */}
           {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-lg md:text-xl font-bold">Step 1: Select Facility Sector</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {isDeptsLoading ? (
-                  <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-                ) : departments?.map(dept => (
-                  <Card 
-                    key={dept.id} 
-                    className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group"
-                    onClick={() => { setSelectedDeptId(dept.id); setStep(2); }}
-                  >
-                    <CardContent className="p-4 md:p-6 flex items-center gap-4">
-                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
-                        <Building2 className="w-5 h-5 md:w-6 md:h-6" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-base md:text-lg truncate">{dept.name}</h3>
-                        <p className="text-[10px] md:text-xs text-muted-foreground">Select to view assets</p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {isDeptsLoading ? <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div> : departments?.map(dept => (
+                <Card key={dept.id} className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group" onClick={() => { setSelectedDeptId(dept.id); setStep(2); }}>
+                  <CardContent className="p-6 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0"><Building2 className="w-6 h-6" /></div>
+                    <div className="flex-1 min-w-0"><h3 className="font-bold text-lg truncate">{dept.name}</h3><p className="text-xs text-muted-foreground">Select sector</p></div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
 
-          {/* Step 2: Equipment Selection */}
           {step === 2 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-[10px] md:text-xs text-primary font-bold uppercase tracking-wider">
-                <Building2 className="w-4 h-4" />
-                Sector: {selectedDept?.name}
-              </div>
-              <h2 className="text-lg md:text-xl font-bold">Step 2: Choose Equipment</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {isEqLoading ? (
-                  <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-                ) : equipment && equipment.length > 0 ? (
-                  equipment.map(eq => (
-                    <Card 
-                      key={eq.id} 
-                      className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group"
-                      onClick={() => { setSelectedEqId(eq.id); setStep(3); }}
-                    >
-                      <CardContent className="p-4 md:p-6 flex items-center gap-4">
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
-                          <Monitor className="w-5 h-5 md:w-6 md:h-6" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-sm truncate">{eq.name}</h3>
-                          <Badge variant="outline" className="text-[9px] md:text-[10px] truncate">{eq.serialNumber}</Badge>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  <p className="text-center py-10 text-muted-foreground col-span-full">No equipment registered in this department.</p>
-                )}
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {isEqLoading ? <div className="col-span-full py-10 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div> : equipment?.map(eq => (
+                <Card key={eq.id} className="border-none shadow-sm hover:ring-2 hover:ring-primary transition-all cursor-pointer group" onClick={() => { setSelectedEqId(eq.id); setStep(3); }}>
+                  <CardContent className="p-6 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0"><Monitor className="w-6 h-6" /></div>
+                    <div className="flex-1 min-w-0"><h3 className="font-bold text-sm truncate">{eq.name}</h3><Badge variant="outline" className="text-[10px] truncate">{eq.serialNumber}</Badge></div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
 
-          {/* Step 3: Service Form */}
           {step === 3 && selectedEq && (
             <Card className="border-none shadow-lg overflow-hidden">
               <div className="h-2 bg-primary" />
-              <CardHeader className="bg-muted/30 p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-primary/20 text-primary border-primary/20 uppercase tracking-widest text-[10px]">Technical Log Protocol</Badge>
-                </div>
-                <CardTitle className="text-xl md:text-2xl">{selectedEq.name}</CardTitle>
-                <CardDescription className="text-xs">
-                  SN: {selectedEq.serialNumber} • Location: {selectedDept?.name}
-                </CardDescription>
+              <CardHeader className="bg-muted/30 p-6">
+                <CardTitle className="text-2xl">{selectedEq.name}</CardTitle>
+                <CardDescription>SN: {selectedEq.serialNumber} • Status: {selectedEq.status}</CardDescription>
               </CardHeader>
-              <CardContent className="p-4 md:p-8 space-y-6 md:space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+              <CardContent className="p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">1. Protocol Type</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <Button 
-                          variant={logType === 'PREVENTIVE' ? 'default' : 'outline'} 
-                          className="h-12 gap-2 text-xs"
-                          onClick={() => setLogType('PREVENTIVE')}
-                          title="Preventive Maintenance (PM): Standard scheduled service cycle protocol."
-                        >
-                          <History className="w-4 h-4 shrink-0" />
-                          <span className="truncate">Service (PM)</span>
-                        </Button>
-                        <Button 
-                          variant={logType === 'CORRECTIVE' ? 'destructive' : 'outline'} 
-                          className="h-12 gap-2 text-xs"
-                          onClick={() => setLogType('CORRECTIVE')}
-                          title="Corrective Maintenance: Unscheduled repair protocol for hardware breakdowns."
-                        >
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span className="truncate">Regular (Breakdown)</span>
-                        </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant={logType === 'PREVENTIVE' ? 'default' : 'outline'} className="h-12 gap-2" onClick={() => setLogType('PREVENTIVE')} title="Service Cycle"><History className="w-4 h-4" /> Service</Button>
+                        <Button variant={logType === 'CORRECTIVE' ? 'destructive' : 'outline'} className="h-12 gap-2" onClick={() => setLogType('CORRECTIVE')} title="Breakdown Repair"><AlertTriangle className="w-4 h-4" /> Breakdown</Button>
                       </div>
                     </div>
-
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">2. Activity Date</Label>
-                      <div className="relative">
-                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          type="date" 
-                          className="pl-10 h-12"
-                          value={lastServiceDate}
-                          onChange={(e) => setLastServiceDate(e.target.value)}
-                        />
-                      </div>
+                      <Input type="date" className="h-12" value={lastServiceDate} onChange={(e) => setLastServiceDate(e.target.value)} />
                     </div>
-
-                    {logType === 'PREVENTIVE' && (
-                      <div className="space-y-2 animate-in fade-in duration-300">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">3. Service Interval</Label>
-                        <select 
-                          className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                          value={interval}
-                          onChange={(e) => setInterval(e.target.value)}
-                        >
-                          <option value="1">1 Month (High Frequency)</option>
-                          <option value="3">3 Months (Quarterly)</option>
-                          <option value="6">6 Months (Bi-Annual)</option>
-                          <option value="12">12 Months (Annual)</option>
-                          <option value="24">24 Months (Long Term)</option>
-                        </select>
-                      </div>
-                    )}
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">3. Registry Update</Label>
+                      <select className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={updatedStatus} onChange={(e) => setUpdatedStatus(e.target.value as any)}>
+                        <option value="">No Change ({selectedEq.status})</option>
+                        <option value="OPERATIONAL">Set to OPERATIONAL</option>
+                        <option value="FAULTY">Flag as FAULTY</option>
+                        <option value="MAINTENANCE">Set to MAINTENANCE</option>
+                      </select>
+                    </div>
                   </div>
-
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">4. Engineer (Performed By)</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          placeholder="Full Name of Engineer" 
-                          className="pl-10 h-12"
-                          value={engineerName}
-                          onChange={(e) => setEngineerName(e.target.value)}
-                        />
-                      </div>
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">4. Engineer</Label>
+                      <Input placeholder="Full Name" className="h-12" value={engineerName} onChange={(e) => setEngineerName(e.target.value)} />
                     </div>
-
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">5. Technical Notes</Label>
-                      <Textarea 
-                        placeholder="Detail specific power problems, parts replaced, or breakdown causes..."
-                        className="min-h-[100px] text-sm"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                      />
+                      <Textarea placeholder="Malfunction or repair details..." className="min-h-[100px]" value={description} onChange={(e) => setDescription(e.target.value)} />
                     </div>
-
-                    {logType === 'PREVENTIVE' && (
-                      <div className="p-4 md:p-6 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                        <Clock className="w-6 h-6 md:w-8 md:h-8 text-primary mb-2 opacity-50" />
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground mb-1 tracking-widest">Calculated Next Service</span>
-                        <span className="text-xl md:text-2xl font-headline font-bold text-primary">
-                          {nextServiceDate ? format(new Date(nextServiceDate), 'MMMM dd, yyyy') : '---'}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border">
-                  <Button variant="outline" className="flex-1 order-2 sm:order-1" onClick={() => setStep(2)}>Abort Entry</Button>
-                  <Button 
-                    className={`flex-1 h-12 font-bold shadow-lg gap-2 order-1 sm:order-2 ${logType === 'CORRECTIVE' ? 'shadow-destructive/20' : 'shadow-primary/20'}`}
-                    disabled={!engineerName || isSaving}
-                    onClick={handleSaveService}
-                    variant={logType === 'CORRECTIVE' ? 'destructive' : 'default'}
-                    title="Commit this maintenance record to the hospital registry database."
-                  >
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
+                  <Button variant="outline" className="flex-1 order-2 sm:order-1" onClick={() => setStep(2)}>Abort</Button>
+                  <Button className="flex-1 h-12 font-bold shadow-lg shadow-primary/20 gap-2 order-1 sm:order-2" disabled={!engineerName || isSaving} onClick={handleSaveService}>
                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                    <span className="truncate">Confirm & Update Asset Registry</span>
+                    Confirm Registry Entry
                   </Button>
                 </div>
               </CardContent>
