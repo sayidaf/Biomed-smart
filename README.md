@@ -1,5 +1,5 @@
 
-# BioMedLink Core Terminal
+BioMedLink Core Terminal Overview
 
 BioMedLink Core is a professional AI-powered terminal designed for Biomedical Engineering (BME) departments to manage clinical hardware life cycles, preventive maintenance, and diagnostic protocols with ISO-compliant auditing.
 
@@ -27,4 +27,4 @@ The system is built with a focus on medical data integrity and professional secu
 This project is licensed under the MIT License.
 
 ---
-**Prepared by Zack**
+Prepared by Zack
