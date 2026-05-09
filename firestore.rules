@@ -15,10 +15,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data;
+    }
+
     function hasRole(role) {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role.lower() == role.lower();
+             getUserData().role.lower() == role.lower();
     }
 
     function isAdmin() {
@@ -28,7 +32,7 @@ service cloud.firestore {
     function isStaff() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-             (get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role.lower() in ['admin', 'biomedical engineer', 'technician']);
+             (getUserData().role.lower() in ['admin', 'biomedical engineer', 'technician']);
     }
 
     match /userProfiles/{userId} {
@@ -48,7 +52,7 @@ service cloud.firestore {
     }
 
     match /equipment/{equipmentId} {
-      allow get, list: if isStaff();
+      allow get, list: if isSignedIn();
       allow create, update: if isStaff();
       allow delete: if isAdmin();
 
@@ -71,9 +75,22 @@ service cloud.firestore {
       }
     }
 
+    match /reports/{reportId} {
+      allow read, create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+
     match /publicEquipmentShowcase/{equipmentId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
+    }
+    
+    // Support for Collection Group queries used in global reports/audits
+    match /{path=**}/maintenanceLogs/{logId} {
+      allow read: if isStaff();
+    }
+    match /{path=**}/aiTroubleshootingSessions/{sessionId} {
+      allow read: if isStaff();
     }
   }
 }
