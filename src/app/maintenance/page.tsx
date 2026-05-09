@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo } from "react"
@@ -8,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { 
   Calendar as CalendarIcon, 
   Wrench, 
-  ChevronRight,
+  ChevronRight, 
   ArrowLeft,
   Building2,
   Monitor,
@@ -23,7 +23,7 @@ import {
   History
 } from "lucide-react"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
-import { collection, doc, serverTimestamp, query, where, addDoc } from "firebase/firestore"
+import { collection, doc, serverTimestamp, query, where } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { useToast } from "@/hooks/use-toast"
 import { format, addMonths } from "date-fns"
@@ -98,7 +98,7 @@ export default function MaintenancePage() {
       updatedAt: serverTimestamp()
     }
 
-    // Save to Maintenance Logs
+    // Save to Maintenance Logs subcollection
     const logsRef = collection(db, "equipment", selectedEq.id, "maintenanceLogs")
     addDocumentNonBlocking(logsRef, logData)
 
@@ -341,5 +341,3 @@ export default function MaintenancePage() {
     </AppShell>
   )
 }
-
-    
