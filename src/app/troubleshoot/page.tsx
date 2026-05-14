@@ -20,14 +20,13 @@ import {
   Building2,
   ChevronRight,
   ArrowLeft,
-  Save,
-  Trash2,
-  Settings
+  Settings,
+  RefreshCw
 } from "lucide-react"
 import { aiTroubleshoot, type AITroubleshootingOutput } from "@/ai/flows/ai-troubleshooting-assistant-flow"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc, query, where, serverTimestamp } from "firebase/firestore"
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -51,7 +50,6 @@ export default function TroubleshootPage() {
   const [errorCode, setErrorCode] = useState("")
   
   const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [result, setResult] = useState<AITroubleshootingOutput | null>(null)
 
@@ -112,25 +110,6 @@ export default function TroubleshootPage() {
       setIsUpdatingStatus(false)
       toast({ title: "Registry Updated", description: `Asset status set to ${status}.` })
     }, 500)
-  }
-
-  const handleSaveProtocol = async () => {
-    if (!db || !result || !selectedEqId) return
-    setIsSaving(true)
-
-    const sessionsRef = collection(db, "equipment", selectedEqId, "aiTroubleshootingSessions")
-    addDocumentNonBlocking(sessionsRef, {
-      equipmentId: selectedEqId,
-      engineerId: currentUser?.uid,
-      problemSummary: problem,
-      protocol: result,
-      status: 'SAVED',
-      createdAt: serverTimestamp()
-    })
-
-    toast({ title: "Protocol Archived", description: "Expert guidance saved to equipment history." })
-    setIsSaving(false)
-    resetFlow()
   }
 
   const selectedDept = departments?.find(d => d.id === selectedDeptId)
@@ -324,9 +303,11 @@ export default function TroubleshootPage() {
                   </CardContent>
                 </Card>
 
-                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
-                  <Button variant="outline" onClick={resetFlow} className="gap-2"><Trash2 className="w-4 h-4" /> Discard Protocol</Button>
-                  <Button className="shadow-lg shadow-primary/20 gap-2 font-bold" onClick={handleSaveProtocol} disabled={isSaving}><Save className="w-4 h-4" /> Archive to Registry</Button>
+                <div className="flex justify-end pt-4">
+                  <Button variant="outline" onClick={resetFlow} className="gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    New Diagnostic Session
+                  </Button>
                 </div>
               </div>
             ) : (
